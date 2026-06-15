@@ -338,12 +338,11 @@ The intention of a white space must be stated explicitly.
 |                          | check\_distribution\_data\_set                     | PartData                              | PartData           | name of the data set containing the particle data                                                                                                                                                                                        |
 |                          | check\_distribution\_normal                        | 1.:1.:0.                              | 1.:0.:0.           | surface outward normal vector "nx:ny:nz"                                                                                                                                                                                                 |
 |                          | check\_distribution\_velocity\_columns             | 4:5:6                                 | 3:4:5              | columns of the velocity vector vx:vy:vz in the data set (note that columns start at 0)                                                                                                                                                   |
-|                          | check\_distribution\_exponent                      | 2.0                                   | 1.0                | exponent n for the single cos^n(theta) distribution                                                                                                                                                                                      |
 |                          | check\_distribution\_double                        | T                                     | F                  | use the double cosine A\*cos^n(theta) - B\*cos^m(theta) distribution instead of cos^n(theta)                                                                                                                                             |
+|                          | check\_distribution\_exponent                      | 2.0                                   | 1.0                | exponent n for the single cos^n(theta) distribution or exponent n of the A*cos^n(theta) term for the double cosine distribution                                                                                                          |
 |                          | check\_distribution\_A                             | 1.77                                  | None               | parameter A of the double cosine distribution (required if check\_distribution\_double=T)                                                                                                                                                |
+|                          | check\_distribution\_exponent2                     | 3.28                                  | None               | parameter m of the double cosine distribution (required if check\_distribution\_double=T)                                                                                                                                                |
 |                          | check\_distribution\_B                             | 0.90                                  | None               | parameter B of the double cosine distribution (required if check\_distribution\_double=T)                                                                                                                                                |
-|                          | check\_distribution\_n                             | 0.95                                  | None               | parameter n of the double cosine distribution (required if check\_distribution\_double=T)                                                                                                                                                |
-|                          | check\_distribution\_m                             | 3.28                                  | None               | parameter m of the double cosine distribution (required if check\_distribution\_double=T)                                                                                                                                                |
 |                          | check\_distribution\_tolerance                     | 0.02                                  | 0.01               | minimum allowed Kolmogorov-Smirnov p-value                                                                                                                                                                                               |
 |                          | check\_distribution\_bins                          | 100                                   | 60                 | number of cos(theta) bins used for the flux/polar plots (use more bins for higher particle numbers to resolve structure near the normal)                                                                                                 |
 | clean-up files after run | clean\_up\_files                                   | *_State_*                             | None               | remove all unwanted files directly after the run is completed. The wild card character is "*"                                                                                                                                            |
@@ -737,8 +736,8 @@ check_distribution_file             = particle_state.h5
 check_distribution_data_set         = PartData
 check_distribution_normal           = 1.:0.:0.
 check_distribution_velocity_columns = 3:4:5
-check_distribution_exponent         = 1.0
 check_distribution_tolerance        = 0.01
+check_distribution_exponent         = 1.0
 ```
 
 Template for copying to **analyze.ini** (double cosine distribution A\*cos^n(theta) - B\*cos^m(theta))
@@ -750,12 +749,12 @@ check_distribution_file             = particle_state.h5
 check_distribution_data_set         = PartData
 check_distribution_normal           = 1.:0.:0.
 check_distribution_velocity_columns = 3:4:5
-check_distribution_double           = T
-check_distribution_A                = 1.77
-check_distribution_B                = 0.90
-check_distribution_n                = 0.95
-check_distribution_m                = 3.28
 check_distribution_tolerance        = 0.01
+check_distribution_double           = T
+check_distribution_exponent         = 0.95
+check_distribution_A                = 1.77
+check_distribution_exponent2        = 3.28
+check_distribution_B                = 0.90
 ```
 
 ## Clean-up files

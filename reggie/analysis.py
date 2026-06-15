@@ -446,9 +446,11 @@ def getAnalyzes(path, example, args):
     #   check_distribution_data_set         : name of the data set containing the particle data (default: PartData)
     #   check_distribution_normal           : surface outward normal vector "nx:ny:nz" (default: 1.:0.:0.)
     #   check_distribution_velocity_columns : columns of the velocity vector vx:vy:vz in the data set (default: 3:4:5)
-    #   check_distribution_exponent         : exponent n for the single cos^n(theta) distribution (default: 1.0)
+    #   check_distribution_exponent         : exponent n for the single cos^n(theta) distribution (default: 1.0),
+    #                                         or exponent n of the A*cos^n(theta) term for the double cosine distribution
     #   check_distribution_double           : use the double cosine A*cos^n(theta) - B*cos^m(theta) distribution
-    #   check_distribution_A/_B/_n/_m       : parameters of the double cosine distribution (required if check_distribution_double=T)
+    #   check_distribution_A/_B/_exponent2  : remaining parameters of the double cosine distribution (required if check_distribution_double=T)
+    #                                         check_distribution_exponent2 is the exponent m of the B*cos^m(theta) term
     #   check_distribution_tolerance        : minimum allowed Kolmogorov-Smirnov p-value (default: 0.01)
     #   check_distribution_bins             : Number of cos-theta bins for flux plots (default: 60;
     #                                         use more for higher N to resolve structure near the normal)
@@ -458,14 +460,13 @@ def getAnalyzes(path, example, args):
                         data_set         = options.get('check_distribution_data_set','PartData'),
                         normal           = options.get('check_distribution_normal','1.:0.:0.'),
                         velocity_columns = options.get('check_distribution_velocity_columns','3:4:5'),
-                        exponent         = float(options.get('check_distribution_exponent',1.0)),
+                        tolerance        = options.get('check_distribution_tolerance',0.01),
                         double           = options.get('check_distribution_double',False),
+                        exponent         = options.get('check_distribution_exponent',1.0),
                         A                = options.get('check_distribution_a'),
+                        exponent2        = options.get('check_distribution_exponent2'),
                         B                = options.get('check_distribution_b'),
-                        n                = options.get('check_distribution_n'),
-                        m                = options.get('check_distribution_m'),
-                        tolerance        = float(options.get('check_distribution_tolerance',0.01)),
-                        bins             = int(options.get('check_distribution_bins',60)) )
+                        bins             = options.get('check_distribution_bins',60) )
     # fmt: on
     if CheckDistribution.file and CheckDistribution.data_set:
         if CheckDistribution.double in ('True', 'true', 't', 'T', True):
@@ -2637,16 +2638,16 @@ class Analyze_check_distribution(Analyze):
 
         if CheckDistribution.double:
             # double cosine distribution A*cos^n(theta) - B*cos^m(theta)
-            if None in (CheckDistribution.A, CheckDistribution.B, CheckDistribution.n, CheckDistribution.m):
-                raise Exception(tools.red("initialization of check_distribution failed. check_distribution_double=T requires check_distribution_A, check_distribution_B, check_distribution_n and check_distribution_m."))
+            if None in (CheckDistribution.A, CheckDistribution.B, CheckDistribution.exponent, CheckDistribution.exponent2):
+                raise Exception(tools.red("initialization of check_distribution failed. check_distribution_double=T requires check_distribution_A, check_distribution_B, check_distribution_exponent and check_distribution_exponent2."))
             try:
-                self.dist = self.cosine_double_dist(float(CheckDistribution.A), float(CheckDistribution.B), float(CheckDistribution.n), float(CheckDistribution.m))
+                self.dist = self.cosine_double_dist(float(CheckDistribution.A), float(CheckDistribution.B), float(CheckDistribution.exponent), float(CheckDistribution.exponent2))
             except ValueError as e:
                 raise Exception(tools.red(f"initialization of check_distribution failed. {e}")) from e
         else:
             # single cosine distribution cos^n(theta)
             try:
-                self.dist = self.cosine_power_dist(CheckDistribution.exponent)
+                self.dist = self.cosine_power_dist(float(CheckDistribution.exponent))
             except ValueError as e:
                 raise Exception(tools.red(f"initialization of check_distribution failed. {e}")) from e
 
