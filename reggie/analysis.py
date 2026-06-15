@@ -469,12 +469,6 @@ def getAnalyzes(path, example, args):
                         bins             = options.get('check_distribution_bins',60) )
     # fmt: on
     if CheckDistribution.file and CheckDistribution.data_set:
-        if CheckDistribution.double in ('True', 'true', 't', 'T', True):
-            CheckDistribution.double = True
-        elif CheckDistribution.double in ('False', 'false', 'f', 'F', False):
-            CheckDistribution.double = False
-        else:
-            raise Exception(tools.red(f"initialization of check_distribution failed. check_distribution_double '{CheckDistribution.double}' not accepted."))
         analyze.append(Analyze_check_distribution(CheckDistribution))
 
     return analyze
@@ -2627,33 +2621,78 @@ class Analyze_check_distribution(Analyze):
         )
 
     def __init__(self, CheckDistribution):
-        # fmt: off
-        self.file             = CheckDistribution.file
-        self.data_set         = CheckDistribution.data_set
-        self.normal           = np.array([float(x) for x in CheckDistribution.normal.split(':')], dtype=np.float64)
-        self.velocity_columns = [int(x) for x in CheckDistribution.velocity_columns.split(':')]
-        self.tolerance        = float(CheckDistribution.tolerance)
-        self.bins             = int(CheckDistribution.bins)
-        # fmt: on
+        # Create dictionary for all keys/parameters and insert a list for every value/option
+        self.prms = {
+            "file":             CheckDistribution.file,
+            "data_set":         CheckDistribution.data_set,
+            "normal":           CheckDistribution.normal,
+            "velocity_columns": CheckDistribution.velocity_columns,
+            "tolerance":        CheckDistribution.tolerance,
+            "bins":             CheckDistribution.bins,
+            "double":           CheckDistribution.double,
+            "exponent":         CheckDistribution.exponent,
+            "A":                CheckDistribution.A,
+            "B":                CheckDistribution.B,
+            "exponent2":        CheckDistribution.exponent2,
+        }
 
-        if CheckDistribution.double:
-            # double cosine distribution A*cos^n(theta) - B*cos^m(theta)
-            if None in (CheckDistribution.A, CheckDistribution.B, CheckDistribution.exponent, CheckDistribution.exponent2):
-                raise Exception(tools.red("initialization of check_distribution failed. check_distribution_double=T requires check_distribution_A, check_distribution_B, check_distribution_exponent and check_distribution_exponent2."))
-            try:
-                self.dist = self.cosine_double_dist(float(CheckDistribution.A), float(CheckDistribution.B), float(CheckDistribution.exponent), float(CheckDistribution.exponent2))
-            except ValueError as e:
-                raise Exception(tools.red(f"initialization of check_distribution failed. {e}")) from e
-        else:
-            # single cosine distribution cos^n(theta)
-            try:
-                self.dist = self.cosine_power_dist(float(CheckDistribution.exponent))
-            except ValueError as e:
-                raise Exception(tools.red(f"initialization of check_distribution failed. {e}")) from e
+        for key, prm in self.prms.items():
+            # Check if prm is not of type 'list'
+            if not isinstance(prm, list):
+                # create list with prm as entry
+                self.prms[key] = [prm]
 
-    def compute_theta(self, velocities):
+        # Get the number of values/options for each key/parameter
+        numbers = {key: len(prm) for key, prm in self.prms.items()}
+
+        # Get maximum number of values (from all possible keys)
+        self.nChecks = numbers[max(numbers, key=numbers.get)]  # ty:ignore[no-matching-overload]
+
+        # Check all numbers and if a key has only 1 number, increase the number to maximum and use the same value for all
+        for key, number in numbers.items():
+            if number == 1:
+                self.prms[key] = [self.prms[key][0] for i in range(self.nChecks)]
+                numbers[key] = self.nChecks
+
+        if any((number != self.nChecks) for number in numbers.values()):
+            raise Exception(tools.red("Number of multiple data sets for multiple check_distribution is inconsistent. Please ensure all options have the same length or length=1."))
+
+        # Parse/convert per-check parameters and build the analytical distribution for each check
+        self.dists = []
+        for check in range(self.nChecks):
+            # fmt: off
+            self.prms["normal"][check]           = np.array([float(x) for x in self.prms["normal"][check].split(':')], dtype=np.float64)
+            self.prms["velocity_columns"][check] = [int(x) for x in self.prms["velocity_columns"][check].split(':')]
+            self.prms["tolerance"][check]        = float(self.prms["tolerance"][check])
+            self.prms["bins"][check]             = int(self.prms["bins"][check])
+            # fmt: on
+
+            double_loc = self.prms["double"][check]
+            if str(double_loc).lower() not in ('true', 't', 'false', 'f'):
+                raise Exception(tools.red(f"initialization of check_distribution failed. check_distribution_double '{double_loc}' not accepted."))
+            # convert double_loc to bool
+            double_loc = str(double_loc).lower() in ('true', 't')
+            self.prms["double"][check] = double_loc
+
+            if double_loc:
+                # double cosine distribution A*cos^n(theta) - B*cos^m(theta)
+                if None in (self.prms["A"][check], self.prms["B"][check], self.prms["exponent"][check], self.prms["exponent2"][check]):
+                    raise Exception(tools.red("initialization of check_distribution failed. check_distribution_double=T requires check_distribution_A, check_distribution_B, check_distribution_exponent and check_distribution_exponent2."))
+                try:
+                    self.dists.append(self.cosine_double_dist(float(self.prms["A"][check]), float(self.prms["B"][check]), float(self.prms["exponent"][check]), float(self.prms["exponent2"][check])))
+                except ValueError as e:
+                    raise Exception(tools.red(f"initialization of check_distribution failed. {e}")) from e
+            else:
+                # single cosine distribution cos^n(theta)
+                try:
+                    self.dists.append(self.cosine_power_dist(float(self.prms["exponent"][check])))
+                except ValueError as e:
+                    raise Exception(tools.red(f"initialization of check_distribution failed. {e}")) from e
+
+    def compute_theta(self, velocities, check):
         """Project velocities onto the surface normal and return the polar angle theta."""
-        n = self.normal / np.linalg.norm(self.normal)
+        n = self.prms["normal"][check]
+        n = n / np.linalg.norm(n)
 
         speed = np.linalg.norm(velocities, axis=1)
         nonzero = speed > 0
@@ -2667,30 +2706,36 @@ class Analyze_check_distribution(Analyze):
             print(tools.indent(tools.red(f"WARNING: {n_back}/{len(theta)} particles have v.n < 0 (traveling into the surface)."), 2))
         return theta
 
-    def make_plots(self, theta, run):
+    def make_plots(self, theta, run, check):
         """Create diagnostic plots comparing the sampled polar-angle distribution against the
         analytical distribution:
           - polar-angle PDF + flux per solid angle (Cartesian, saved as "<file>_distribution.png")
           - polar lobe plot of the flux per solid angle (saved as "<file>_distribution_polar.png")
         """
-        prefix = os.path.join(run.target_directory, os.path.splitext(os.path.basename(self.file))[0])
+        file_loc = self.prms["file"][check]
+        bins_loc = self.prms["bins"][check]
+        dist     = self.dists[check]
+
+        prefix = os.path.join(run.target_directory, os.path.splitext(os.path.basename(file_loc))[0])
+        if self.nChecks > 1:
+            prefix += f"_check{check + 1}"
         # --- angle grids and analytical curves used for the smooth comparison curves ---
         th_an = np.linspace(0.0, 0.5 * np.pi, 400)
         # start slightly above 0 since the double-cosine flux can be exactly 0 at theta=0
         # (when A == B), which would break the log-scale flux plot
         th_an_flux = np.linspace(np.radians(2.0), 0.5 * np.pi, 400)
-        flux_an = self.dist.flux(th_an_flux)
+        flux_an = dist.flux(th_an_flux)
 
         # --- empirical flux per solid angle, binned from the sampled theta ---
         # bin edges/centers in mu = cos(theta) in [0,1]; equal-width bins in mu give equal solid-angle bins
-        mu_edges = np.linspace(0.0, 1.0, self.bins + 1)
+        mu_edges = np.linspace(0.0, 1.0, bins_loc + 1)
         mu_centers = 0.5 * (mu_edges[:-1] + mu_edges[1:])
         dmu = np.diff(mu_edges)
         # histogram the sampled angles in mu-space, then divide by the solid angle of each bin
         # (2*pi*dmu) and the total particle count to get the flux per solid angle
         counts, _ = np.histogram(np.cos(theta), bins=mu_edges)
         flux = counts / (2.0 * np.pi * dmu * theta.size)
-        # peak-normalise so it can be compared directly with self.dist.flux()
+        # peak-normalise so it can be compared directly with dist.flux()
         flux_scaled = flux / np.max(flux) if np.max(flux) > 0 else flux
         # mu = cos(theta) decreases as theta increases, so sort by theta = arccos(mu) for plotting
         order = np.argsort(np.arccos(mu_centers))
@@ -2700,10 +2745,10 @@ class Analyze_check_distribution(Analyze):
         # --- polar-angle PDF and flux per solid angle ---
         fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
-        counts_pdf, edges = np.histogram(theta, bins=self.bins, range=(0.0, 0.5 * np.pi), density=True)
+        counts_pdf, edges = np.histogram(theta, bins=bins_loc, range=(0.0, 0.5 * np.pi), density=True)
         centers_pdf = 0.5 * (edges[:-1] + edges[1:])
         axes[0].step(np.degrees(centers_pdf), counts_pdf, where='mid', color='C0', label=f"Result (N={theta.size})")
-        axes[0].plot(np.degrees(th_an), self.dist.pdf(th_an), 'k-', lw=2, label=f"analytical: {self.dist.label}")
+        axes[0].plot(np.degrees(th_an), dist.pdf(th_an), 'k-', lw=2, label=f"analytical: {dist.label}")
         axes[0].set_xlabel("polar angle theta [deg]")
         axes[0].set_ylabel("polar-angle PDF g(theta)")
         axes[0].set_xlim(0, 90)
@@ -2711,7 +2756,7 @@ class Analyze_check_distribution(Analyze):
         axes[0].grid(alpha=0.3)
 
         axes[1].step(np.degrees(centers_flux), flux_scaled, where='mid', color='C0', label="Result (peak-normalised)")
-        axes[1].plot(np.degrees(th_an_flux), flux_an, 'k-', lw=2, label=f"analytical: {self.dist.label}")
+        axes[1].plot(np.degrees(th_an_flux), flux_an, 'k-', lw=2, label=f"analytical: {dist.label}")
         axes[1].set_xlabel("polar angle theta [deg]")
         axes[1].set_ylabel("flux per solid angle (peak-normalised)")
         axes[1].set_xlim(0, 90)
@@ -2720,7 +2765,7 @@ class Analyze_check_distribution(Analyze):
         axes[1].legend(loc='lower left', fontsize=8)
         axes[1].grid(alpha=0.3, which='both')
 
-        fig.suptitle(f"{self.dist.label} -- {os.path.basename(self.file)}")
+        fig.suptitle(f"{dist.label} -- {os.path.basename(file_loc)}")
         fig.tight_layout()
         fig.savefig(f"{prefix}_distribution.png", bbox_inches='tight')
         plt.close(fig)
@@ -2731,13 +2776,13 @@ class Analyze_check_distribution(Analyze):
         ax2.set_theta_direction(-1)
         ax2.set_thetamin(-90)
         ax2.set_thetamax(90)
-        ax2.plot(np.concatenate([-th_an_flux[::-1], th_an_flux]), np.concatenate([flux_an[::-1], flux_an]), 'k-', lw=2, label=f"analytical: {self.dist.label}")
+        ax2.plot(np.concatenate([-th_an_flux[::-1], th_an_flux]), np.concatenate([flux_an[::-1], flux_an]), 'k-', lw=2, label=f"analytical: {dist.label}")
         ax2.plot(np.concatenate([-centers_flux[::-1], centers_flux]), np.concatenate([flux_scaled[::-1], flux_scaled]), 'o', color='C0', ms=4, label="Result")
-        if self.dist.theta_peak > 0:
-            ax2.plot([self.dist.theta_peak] * 2, [0.0, 1.0], color='C2', ls='-.', lw=1.0)
-            ax2.plot([-self.dist.theta_peak] * 2, [0.0, 1.0], color='C2', ls='-.', lw=1.0, label=f"peak theta=[{np.degrees(self.dist.theta_peak):.1f} deg]")
+        if dist.theta_peak > 0:
+            ax2.plot([dist.theta_peak] * 2, [0.0, 1.0], color='C2', ls='-.', lw=1.0)
+            ax2.plot([-dist.theta_peak] * 2, [0.0, 1.0], color='C2', ls='-.', lw=1.0, label=f"peak theta=[{np.degrees(dist.theta_peak):.1f} deg]")
         ax2.set_rmax(1.1)
-        ax2.set_title(f"Polar lobe -- {self.dist.label}", pad=20)
+        ax2.set_title(f"Polar lobe -- {dist.label}", pad=20)
         ax2.legend(loc='lower center', bbox_to_anchor=(0.5, -0.18), fontsize=8)
         ax2.grid(alpha=0.4)
         fig2.tight_layout()
@@ -2756,8 +2801,9 @@ class Analyze_check_distribution(Analyze):
 
         General workflow:
         1.  iterate over all runs
-        1.1   Read the hdf5 file
-        1.1.1   Check if dataset exists
+        1.1   iterate over all checks
+        1.1.1   Read the hdf5 file
+        1.1.2   Check if dataset exists
         1.2   Read the velocity columns from the data set
         1.2.1   Transpose the array if stored as (nCols, nParts)
         1.3   Project the velocities onto the surface normal and determine the polar angle theta
@@ -2766,85 +2812,97 @@ class Analyze_check_distribution(Analyze):
 
         # 1.  iterate over all runs
         for run in runs:
-            # 1.1   Read the hdf5 file
-            path = os.path.join(run.target_directory, self.file)
-            if not os.path.exists(path):
-                s = tools.red(f"Analyze_check_distribution: file does not exist, file=[{path}]")
-                print(s)
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
-                continue
+            # 1.1   iterate over all checks
+            for check in range(self.nChecks):
+                file_loc             = self.prms["file"][check]
+                data_set_loc         = self.prms["data_set"][check]
+                velocity_columns_loc = self.prms["velocity_columns"][check]
+                tolerance_loc        = self.prms["tolerance"][check]
+                dist                 = self.dists[check]
 
-            with h5py.File(path, 'r') as f:
-                # 1.1.1   Check if dataset exists
-                if self.data_set not in f:
-                    s = tools.red(f"Analyze_check_distribution: [{self.data_set}] not found in file=[{path}]")
+                # 1.1.1   Read the hdf5 file
+                path = os.path.join(run.target_directory, file_loc)
+                if not os.path.exists(path):
+                    s = tools.red(f"Analyze_check_distribution: file does not exist, file=[{path}]")
                     print(s)
                     run.analyze_results.append(s)
                     run.analyze_successful = False
                     Analyze.total_errors += 1
                     continue
 
-                data = f[self.data_set][...]
+                with h5py.File(path, 'r') as f:
+                    # 1.1.2   Check if dataset exists
+                    if data_set_loc not in f:
+                        s = tools.red(f"Analyze_check_distribution: [{data_set_loc}] not found in file=[{path}]")
+                        print(s)
+                        run.analyze_results.append(s)
+                        run.analyze_successful = False
+                        Analyze.total_errors += 1
+                        continue
 
-            if data.ndim != 2 or min(data.shape) == 0:
-                s = tools.red(f"Analyze_check_distribution: [{self.data_set}] must be a non-empty 2-dimensional array, got shape={data.shape}")
-                print(s)
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
-                continue
+                    data = f[data_set_loc][...]
 
-            # 1.2.1   Transpose the array if array is stored as (nCols, nParts)
-            if data.shape[0] < data.shape[1] and data.shape[0] <= 16:
-                data = data.T
+                if data.ndim != 2 or min(data.shape) == 0:
+                    s = tools.red(f"Analyze_check_distribution: [{data_set_loc}] must be a non-empty 2-dimensional array, got shape={data.shape}")
+                    print(s)
+                    run.analyze_results.append(s)
+                    run.analyze_successful = False
+                    Analyze.total_errors += 1
+                    continue
 
-            # 1.2   Read the velocity columns from the data set
-            if max(self.velocity_columns) >= data.shape[1]:
-                s = tools.red(f"Analyze_check_distribution: velocity_columns={self.velocity_columns} out of bounds for [{self.data_set}] with shape={data.shape}")
-                print(s)
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
-                continue
-            velocities = data[:, self.velocity_columns].astype(np.float64)
+                # 1.2.1   Transpose the array if array is stored as (nCols, nParts)
+                if data.shape[0] < data.shape[1] and data.shape[0] <= 16:
+                    data = data.T
 
-            # 1.3   Project the velocities onto the surface normal and determine the polar angle theta
-            theta = self.compute_theta(velocities)
-            theta = theta[(theta >= 0.0) & (theta <= 0.5 * np.pi)]
+                # 1.2   Read the velocity columns from the data set
+                if max(velocity_columns_loc) >= data.shape[1]:
+                    s = tools.red(f"Analyze_check_distribution: velocity_columns={velocity_columns_loc} out of bounds for [{data_set_loc}] with shape={data.shape}")
+                    print(s)
+                    run.analyze_results.append(s)
+                    run.analyze_successful = False
+                    Analyze.total_errors += 1
+                    continue
+                velocities = data[:, velocity_columns_loc].astype(np.float64)
 
-            if theta.size == 0:
-                s = tools.red(f"Analyze_check_distribution: no particles with 0 <= theta <= pi/2 (v.n >= 0) found in [{self.data_set}]")
-                print(s)
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
-                continue
+                # 1.3   Project the velocities onto the surface normal and determine the polar angle theta
+                theta = self.compute_theta(velocities, check)
+                theta = theta[(theta >= 0.0) & (theta <= 0.5 * np.pi)]
 
-            # 1.4   Run the Kolmogorov-Smirnov test against the analytical CDF and compare the p-value with the tolerance
-            res = sp.stats.kstest(theta, self.dist.cdf)
-            print(tools.indent(tools.blue(f"distribution=[{self.dist.label}],\n"
-                                          f"N=[{theta.size}],\n"
-                                          f"D=[{res.statistic:.5e}],\n"
-                                          f"p-value=[{res.pvalue:.4e}] (tolerance=[{self.tolerance:.4e}])"), 2))
+                if theta.size == 0:
+                    s = tools.red(f"Analyze_check_distribution: no particles with 0 <= theta <= pi/2 (v.n >= 0) found in [{data_set_loc}]")
+                    print(s)
+                    run.analyze_results.append(s)
+                    run.analyze_successful = False
+                    Analyze.total_errors += 1
+                    continue
 
-            if res.pvalue < self.tolerance:
-                s = tools.red(
-                    f"Analyze_check_distribution: Kolmogorov-Smirnov test failed for distribution=[{self.dist.label}]: "
-                    f"p-value=[{res.pvalue:.4e}] < tolerance=[{self.tolerance:.4e}] (D=[{res.statistic:.5e}], N=[{theta.size}])"
-                )
-                print(s)
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                # 1.4   Run the Kolmogorov-Smirnov test against the analytical CDF and compare the p-value with the tolerance
+                res = sp.stats.kstest(theta, dist.cdf)
+                print(tools.indent(tools.blue(f"distribution=[{dist.label}],\n"
+                                              f"N=[{theta.size}],\n"
+                                              f"D=[{res.statistic:.5e}],\n"
+                                              f"p-value=[{res.pvalue:.4e}] (tolerance=[{tolerance_loc:.4e}])"), 2))
 
-            # 1.5   Create diagnostic plots comparing the sampled distribution against the analytical one
-            if pyplot_module_loaded:
-                self.make_plots(theta, run)
+                if res.pvalue < tolerance_loc:
+                    s = tools.red(
+                        f"Analyze_check_distribution: Kolmogorov-Smirnov test failed for distribution=[{dist.label}]: "
+                        f"p-value=[{res.pvalue:.4e}] < tolerance=[{tolerance_loc:.4e}] (D=[{res.statistic:.5e}], N=[{theta.size}])"
+                    )
+                    print(s)
+                    run.analyze_results.append(s)
+                    run.analyze_successful = False
+                    Analyze.total_errors += 1
+
+                # 1.5   Create diagnostic plots comparing the sampled distribution against the analytical one
+                if pyplot_module_loaded:
+                    self.make_plots(theta, run, check)
 
     def __str__(self):
-        return f"check the polar-angle distribution of velocities in an hdf5 array against the analytical distribution [{self.dist.label}] (Kolmogorov-Smirnov test, tolerance=[{self.tolerance}]):\n file=[{self.file}], dataset=[{self.data_set}]"
+        return "\n".join(
+            f"check the polar-angle distribution of velocities in an hdf5 array against the analytical distribution [{self.dists[check].label}] "
+            f"(Kolmogorov-Smirnov test, tolerance=[{self.prms['tolerance'][check]}]):\n file=[{self.prms['file'][check]}], dataset=[{self.prms['data_set'][check]}]"
+            for check in range(self.nChecks)
+        )
 
 
 # ==================================================================================================

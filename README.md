@@ -726,7 +726,8 @@ MPI=2,4,6,8
 * Supports the single cosine distribution dN/dOmega ~ cos^n(theta) and the double cosine distribution dN/dOmega ~ A\*cos^n(theta) - B\*cos^m(theta) (e.g. for sputtering distributions whose maximum is off-normal)
 * The polar angle theta is calculated between each particle's velocity vector and the supplied surface outward normal vector
 * Requires *h5py* python module (analyze will fail if the module cannot be found)
-* If `use_matplot_lib = T` is set, two diagnostic plots are created per run: `<file>_distribution.png` (polar-angle PDF and flux per solid angle compared with the analytical distribution) and `<file>_distribution_polar.png` (polar lobe plot of the flux per solid angle)
+* If `use_matplot_lib = T` is set, two plots are created per run: `<file>_distribution.png` (polar-angle PDF and flux per solid angle compared with the analytical distribution) and `<file>_distribution_polar.png` (polar lobe plot of the flux per solid angle)
+* Multiple checks can be defined in a single analyze.ini by supplying comma-separated lists for the options. Options given as a single value are used for every check, while lists must all have the same length. When more than one check is defined, the plots are named `<file>_check1_distribution.png`, `<file>_check2_distribution.png`, etc. where `<file>_check1_distribution.png` corresponds to the first column in the analyze.ini file.
 
 Template for copying to **analyze.ini** (single cosine distribution cos^n(theta))
 
@@ -755,6 +756,23 @@ check_distribution_exponent         = 0.95
 check_distribution_A                = 1.77
 check_distribution_exponent2        = 3.28
 check_distribution_B                = 0.90
+```
+
+Template for copying to **analyze.ini** (for multiple checks multiple checks)
+
+```
+! check the polar-angle distribution of emitted particle velocities against
+! cos^n(theta) (check 1) and A*cos^n(theta) - B*cos^m(theta) (check 2)
+check_distribution_file             = particle_state.h5
+check_distribution_data_set         = PartData
+check_distribution_normal           = 1.:0.:0.
+check_distribution_velocity_columns = 3:4:5
+check_distribution_tolerance        = 0.01
+check_distribution_double           = F                 ,F      ,F      ,T
+check_distribution_exponent         = 0.5               ,1.0    ,2.0    ,0.5
+check_distribution_A                = 2.00
+check_distribution_exponent2        = 3.0
+check_distribution_B                = 1.0
 ```
 
 ## Clean-up files
