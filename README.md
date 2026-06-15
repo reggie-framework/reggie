@@ -245,6 +245,8 @@ gitlab-ci.py
   - [compare data column](#compare-data-column)
   - [Compare across commands](#compare-across-commands)
   - [Check polar-angle distribution](#check-polar-angle-distribution)
+    - [Example with `check_distribution_one_check_per_run = F`](#example-with-check_distribution_one_check_per_run--f)
+    - [Example with `check_distribution_one_check_per_run = T`](#example-with-check_distribution_one_check_per_run--t)
   - [Clean-up files](#clean-up-files)
 - [Command Line](#command-line)
     - [Example](#example)
@@ -336,6 +338,7 @@ The intention of a white space must be stated explicitly.
 |                          | compare\_across\_commands\_<br />reference         | 1                                     | 0                  | command number for taking reference value (according to numbering cmd_0001, cmd_0002,...) - default value 0 takes average of all calculated values                                                                                       |
 | check polar-angle distribution | check\_distribution\_file                    | particle\_State\_00.0000.h5           | None               | name of calculated output file (e.g. .h5 file)                                                                                                                                                                                           |
 |                          | check\_distribution\_data\_set                     | PartData                              | PartData           | name of the data set containing the particle data                                                                                                                                                                                        |
+|                          | check\_distribution\_one\_check\_per\_run          | True                                  | False              | when multiple reference distributions are supplied, these can either be used in every run (check_distribution_one_check_per_run=F) or one each run (check_distribution_one_check_per_run=T)                                              |
 |                          | check\_distribution\_normal                        | 1.:1.:0.                              | 1.:0.:0.           | surface outward normal vector "nx:ny:nz"                                                                                                                                                                                                 |
 |                          | check\_distribution\_velocity\_columns             | 4:5:6                                 | 3:4:5              | columns of the velocity vector vx:vy:vz in the data set (note that columns start at 0)                                                                                                                                                   |
 |                          | check\_distribution\_double                        | T                                     | F                  | use the double cosine A\*cos^n(theta) - B\*cos^m(theta) distribution instead of cos^n(theta)                                                                                                                                             |
@@ -730,7 +733,6 @@ MPI=2,4,6,8
 * Multiple checks can be defined in a single analyze.ini by supplying comma-separated lists for the options. Options given as a single value are used for every check, while lists must all have the same length. When more than one check is defined, the plots are named `<file>_check1_distribution.png`, `<file>_check2_distribution.png`, etc. where `<file>_check1_distribution.png` corresponds to the first column in the analyze.ini file.
 
 Template for copying to **analyze.ini** (single cosine distribution cos^n(theta))
-
 ```
 ! check the polar-angle distribution of emitted particle velocities against cos^n(theta)
 check_distribution_file             = particle_state.h5
@@ -742,7 +744,6 @@ check_distribution_exponent         = 1.0
 ```
 
 Template for copying to **analyze.ini** (double cosine distribution A\*cos^n(theta) - B\*cos^m(theta))
-
 ```
 ! check the polar-angle distribution of emitted particle velocities against
 ! A*cos^n(theta) - B*cos^m(theta) (e.g. an off-normal sputtering lobe)
@@ -758,21 +759,47 @@ check_distribution_exponent2        = 3.28
 check_distribution_B                = 0.90
 ```
 
-Template for copying to **analyze.ini** (for multiple checks multiple checks)
+### Example with `check_distribution_one_check_per_run = F`
+Each comparison defined in analyze.ini is performed in each run.
+The following example considers two runs (e.g. different exponents) and compares two separate files in each run, hence, two distributions can be analyzed.
 
+Template for copying to **analyze.ini**
 ```
 ! check the polar-angle distribution of emitted particle velocities against
 ! cos^n(theta) (check 1) and A*cos^n(theta) - B*cos^m(theta) (check 2)
-check_distribution_file             = particle_state.h5
-check_distribution_data_set         = PartData
-check_distribution_normal           = 1.:0.:0.
-check_distribution_velocity_columns = 3:4:5
-check_distribution_tolerance        = 0.01
-check_distribution_double           = F                 ,F      ,F      ,T
-check_distribution_exponent         = 0.5               ,1.0    ,2.0    ,0.5
-check_distribution_A                = 2.00
-check_distribution_exponent2        = 3.0
-check_distribution_B                = 1.0
+check_distribution_file               = particle_state.h5 , particle_state_2.h5
+check_distribution_data_set           = PartData
+check_distribution_one_check_per_run  = F
+check_distribution_normal             = 1.:0.:0.
+check_distribution_velocity_columns   = 3:4:5
+check_distribution_tolerance          = 0.01
+check_distribution_double             = F                 ,F
+check_distribution_exponent           = 0.5               ,1.0
+check_distribution_A                  = 2.00
+check_distribution_exponent2          = 3.0
+check_distribution_B                  = 1.0
+```
+
+### Example with `check_distribution_one_check_per_run = T`
+A different comparison is performed in each run, where each column in analyze.ini is only used for one of the runs.
+The following example considers 2 runs (which produce a single outputfile each) and in every run only one file is compared with a reference distribution, which is different for each run.
+Note that in this case the number of runs and the number of analyzes have to be equal. Options which contain only a single value are copied for the other checks.
+
+Template for copying to **analyze.ini**
+```
+! check the polar-angle distribution of emitted particle velocities against
+! cos^n(theta) (check 1) and A*cos^n(theta) - B*cos^m(theta) (check 2)
+check_distribution_file               = particle_state.h5 , particle_state.h5
+check_distribution_data_set           = PartData
+check_distribution_one_check_per_run  = T
+check_distribution_normal             = 1.:0.:0.
+check_distribution_velocity_columns   = 3:4:5
+check_distribution_tolerance          = 0.01
+check_distribution_double             = F                 ,F
+check_distribution_exponent           = 0.5               ,1.0
+check_distribution_A                  = 2.00
+check_distribution_exponent2          = 3.0
+check_distribution_B                  = 1.0
 ```
 
 ## Clean-up files

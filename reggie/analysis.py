@@ -442,31 +442,33 @@ def getAnalyzes(path, example, args):
 
     # 2.12   check polar-angle distribution of particle velocities in an hdf5 file against an
     #        analytical cos^n(theta) or A*cos^n(theta) - B*cos^m(theta) distribution (KS test)
-    #   check_distribution_file             : name of the hdf5 file containing the particle data
-    #   check_distribution_data_set         : name of the data set containing the particle data (default: PartData)
-    #   check_distribution_normal           : surface outward normal vector "nx:ny:nz" (default: 1.:0.:0.)
-    #   check_distribution_velocity_columns : columns of the velocity vector vx:vy:vz in the data set (default: 3:4:5)
-    #   check_distribution_exponent         : exponent n for the single cos^n(theta) distribution (default: 1.0),
-    #                                         or exponent n of the A*cos^n(theta) term for the double cosine distribution
-    #   check_distribution_double           : use the double cosine A*cos^n(theta) - B*cos^m(theta) distribution
-    #   check_distribution_A/_B/_exponent2  : remaining parameters of the double cosine distribution (required if check_distribution_double=T)
-    #                                         check_distribution_exponent2 is the exponent m of the B*cos^m(theta) term
-    #   check_distribution_tolerance        : minimum allowed Kolmogorov-Smirnov p-value (default: 0.01)
-    #   check_distribution_bins             : Number of cos-theta bins for flux plots (default: 60;
-    #                                         use more for higher N to resolve structure near the normal)
+    #   check_distribution_file                 : name of the hdf5 file containing the particle data
+    #   check_distribution_data_set             : name of the data set containing the particle data (default: PartData)
+    #   check_distribution_one_check_per_run    : only perform corresponding check per run (e.g. first check only for first run, second check only for second run, ....)
+    #   check_distribution_normal               : surface outward normal vector "nx:ny:nz" (default: 1.:0.:0.)
+    #   check_distribution_velocity_columns     : columns of the velocity vector vx:vy:vz in the data set (default: 3:4:5)
+    #   check_distribution_exponent             : exponent n for the single cos^n(theta) distribution (default: 1.0),
+    #                                             or exponent n of the A*cos^n(theta) term for the double cosine distribution
+    #   check_distribution_double               : use the double cosine A*cos^n(theta) - B*cos^m(theta) distribution
+    #   check_distribution_A/_B/_exponent2      : remaining parameters of the double cosine distribution (required if check_distribution_double=T)
+    #                                             check_distribution_exponent2 is the exponent m of the B*cos^m(theta) term
+    #   check_distribution_tolerance            : minimum allowed Kolmogorov-Smirnov p-value (default: 0.01)
+    #   check_distribution_bins                 : Number of cos-theta bins for flux plots (default: 60;
+    #                                             use more for higher N to resolve structure near the normal)
     # fmt: off
     CheckDistribution = SimpleNamespace(
-                        file             = options.get('check_distribution_file'),
-                        data_set         = options.get('check_distribution_data_set','PartData'),
-                        normal           = options.get('check_distribution_normal','1.:0.:0.'),
-                        velocity_columns = options.get('check_distribution_velocity_columns','3:4:5'),
-                        tolerance        = options.get('check_distribution_tolerance',0.01),
-                        double           = options.get('check_distribution_double',False),
-                        exponent         = options.get('check_distribution_exponent',1.0),
-                        A                = options.get('check_distribution_a'),
-                        exponent2        = options.get('check_distribution_exponent2'),
-                        B                = options.get('check_distribution_b'),
-                        bins             = options.get('check_distribution_bins',60) )
+                        file                = options.get('check_distribution_file'),
+                        data_set            = options.get('check_distribution_data_set','PartData'),
+                        one_check_per_run   = options.get('check_distribution_one_check_per_run', True),
+                        normal              = options.get('check_distribution_normal','1.:0.:0.'),
+                        velocity_columns    = options.get('check_distribution_velocity_columns','3:4:5'),
+                        tolerance           = options.get('check_distribution_tolerance',0.01),
+                        double              = options.get('check_distribution_double',False),
+                        exponent            = options.get('check_distribution_exponent',1.0),
+                        A                   = options.get('check_distribution_a'),
+                        exponent2           = options.get('check_distribution_exponent2'),
+                        B                   = options.get('check_distribution_b'),
+                        bins                = options.get('check_distribution_bins',60) )
     # fmt: on
     if CheckDistribution.file and CheckDistribution.data_set:
         analyze.append(Analyze_check_distribution(CheckDistribution))
@@ -2621,6 +2623,25 @@ class Analyze_check_distribution(Analyze):
         )
 
     def __init__(self, CheckDistribution):
+
+        # Set number of diffs per run [True/False]
+        if isinstance(CheckDistribution.one_check_per_run, bool):  # check if default value is still set
+            self.one_check_per_run = True
+        else:
+            # Check what the user set
+            self.one_check_per_run = CheckDistribution.one_check_per_run.lower() in ('false', 'f')
+            if self.one_check_per_run:
+                # User selected False
+                self.one_check_per_run = False
+            else:
+                # User selected something else
+                self.one_check_per_run = CheckDistribution.one_check_per_run.lower() in (('true', 't'))
+                if self.one_check_per_run:
+                    # User selected True
+                    pass
+                else:
+                    raise Exception(tools.red("CheckDistribution.one_check_per_run is set neither True/False, check the parameter"))
+
         # Create dictionary for all keys/parameters and insert a list for every value/option
         self.prms = {
             "file":             CheckDistribution.file,
@@ -2810,10 +2831,27 @@ class Analyze_check_distribution(Analyze):
         1.4   Run the Kolmogorov-Smirnov test against the analytical CDF and compare the p-value with the tolerance
         '''
 
+        if self.one_check_per_run and (self.nChecks != len(runs)) and self.nChecks > 1:
+            s = tools.red(
+                "Number of check_distribution tests and runs is inconsistent. "
+                + f"Please ensure all options have the same length or set check_distribution_one_check_per_run=F. Nbr. of comparisons: {self.nChecks}, Nbr. of runs: {len(runs)}"
+            )
+            print(s)
+            # 1.  iterate over all runs
+            for run in runs:
+                run.analyze_results.append(s)
+                run.analyze_successful = False
+                Analyze.total_errors += 1
+            return  # skip the following analysis tests
+
         # 1.  iterate over all runs
-        for run in runs:
+        for iRun, run in enumerate(runs):
+            # Check whether the list of diffs is to be used one-at-a-time, i.e., a list of diffs for a list of runs (each run only performs one diff, not all of them)
+            # > One comparison for each run
+            # > All comparisons for every run
+            checks = ([iRun] if self.nChecks > 1 else [0]) if self.one_check_per_run else range(self.nChecks)
             # 1.1   iterate over all checks
-            for check in range(self.nChecks):
+            for check in checks:
                 file_loc             = self.prms["file"][check]
                 data_set_loc         = self.prms["data_set"][check]
                 velocity_columns_loc = self.prms["velocity_columns"][check]
@@ -2993,7 +3031,7 @@ class Analyze_compare_data_file(Analyze):
         """
         if self.one_diff_per_run and (self.nCompares != len(runs)) and self.nCompares > 1:
             s = tools.red(
-                "Number of compare_data_file tests and runs is inconsistent."
+                "Number of compare_data_file tests and runs is inconsistent. "
                 + f"Please ensure all options have the same length or set compare_data_file_one_diff_per_run=F. Nbr. of comparisons: {self.nCompares}, Nbr. of runs: {len(runs)}"
             )
             print(s)
@@ -3396,7 +3434,7 @@ class Analyze_compare_column(Analyze):
             return  # skip the following analysis tests
         if self.one_diff_per_run and (self.nCompares != len(runs)) and self.nCompares > 1:
             s = tools.red(
-                "Number of compare_column tests and runs is inconsistent."
+                "Number of compare_column tests and runs is inconsistent. "
                 + f" Please ensure all options have the same length or set compare_column_one_diff_per_run=F. Nbr. of comparisons: {self.nCompares}, Nbr. of runs: {len(runs)}"
             )
             print(s)
