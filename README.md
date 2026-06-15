@@ -244,6 +244,7 @@ gitlab-ci.py
   - [integrate data columns](#integrate-data-columns)
   - [compare data column](#compare-data-column)
   - [Compare across commands](#compare-across-commands)
+  - [Check polar-angle distribution](#check-polar-angle-distribution)
   - [Clean-up files](#clean-up-files)
 - [Command Line](#command-line)
     - [Example](#example)
@@ -292,11 +293,11 @@ The intention of a white space must be stated explicitly.
 |                          | h5diff\_max\_differences                           | 15                                    | 0                  | Maximum number of allowed differences that are detected by h5diff for the test to pass without failure                                                                                                                                   |
 |                          | h5diff\_var\_attribute                             | VarNamesSurface                       | None               | name of attribute in the h5 file containing the column names of the given dataset                                                                                                                                                        |
 |                          | h5diff\_var\_name                                  | Spec001_ImpactNumber                  | None               | name of column containing the data which should be compared                                                                                                                                                                              |
-|          vtudiff         | vtudiff\_file                                      | particle\_Solution\_00.0000.vtu       | None               | name of calculated .vtu file (output from current run)                                                                                                                                                                                    |
-|                          | vtudiff\_reference\_file                           | particle\_Solution\_00.0000\_ref.vtu  | None               | reference .vtu file (must be placed in repository) for comparing with the calculated one                                                                                                                                                  |
-|                          | vtudiff\_relative\_tolerance\_value                | 1.0e-5                                | 1e-2               | relative deviation between two elements in a .vtu array                                                                                                                                                                          |
-|                          | vtudiff\_absolute\_tolerance\_value                | 1.0e-8                                | 1e-5               | absolute deviation between two elements in a .vtu array                                                                                                                                                                          |
-|                          | vtudiff\_array\_name                               | DG\_Solution or DG\_Solution\\sField1 | None               | name of .vtu array for comparing (e.g. DG\_Solution or DG\_Solution vs. Field1 when the datasets in the two files have different names)                                                                                                     |
+|          vtudiff         | vtudiff\_file                                      | particle\_Solution\_00.0000.vtu       | None               | name of calculated .vtu file (output from current run)                                                                                                                                                                                   |
+|                          | vtudiff\_reference\_file                           | particle\_Solution\_00.0000\_ref.vtu  | None               | reference .vtu file (must be placed in repository) for comparing with the calculated one                                                                                                                                                 |
+|                          | vtudiff\_relative\_tolerance\_value                | 1.0e-5                                | 1e-2               | relative deviation between two elements in a .vtu array                                                                                                                                                                                  |
+|                          | vtudiff\_absolute\_tolerance\_value                | 1.0e-8                                | 1e-5               | absolute deviation between two elements in a .vtu array                                                                                                                                                                                  |
+|                          | vtudiff\_array\_name                               | DG\_Solution or DG\_Solution\\sField1 | None               | name of .vtu array for comparing (e.g. DG\_Solution or DG\_Solution vs. Field1 when the datasets in the two files have different names)                                                                                                  |
 |  h5 array bounds check   | check\_hdf5\_file                                  | tildbox_State_01.0000.h5              | None               | name of calculated .h5 file (output from current run)                                                                                                                                                                                    |
 |                          | check\_hdf5\_data\_set                             | PartData                              | None               | name of data set for comparing (e.g. DG\_Solution)                                                                                                                                                                                       |
 |                          | check\_hdf5\_span                                  | 1                                     | 2                  | Checks elements of a 2-dimensional m x n array (1: check array elements by rows, 2: check array elements by columns)                                                                                                                     |
@@ -333,6 +334,17 @@ The intention of a white space must be stated explicitly.
 |                          | compare\_across\_commands\_<br />tolerance\_value  | 0.1                                   | 0.1                | tolerance value for deviation among the values to be compared                                                                                                                                                                            |
 |                          | compare\_across\_commands\_<br />tolerance\_type   | absolute                              | relative           | tolerance type to be used in comparison                                                                                                                                                                                                  |
 |                          | compare\_across\_commands\_<br />reference         | 1                                     | 0                  | command number for taking reference value (according to numbering cmd_0001, cmd_0002,...) - default value 0 takes average of all calculated values                                                                                       |
+| check polar-angle distribution | check\_distribution\_file                    | particle\_State\_00.0000.h5           | None               | name of calculated output file (e.g. .h5 file)                                                                                                                                                                                           |
+|                          | check\_distribution\_data\_set                     | PartData                              | PartData           | name of the data set containing the particle data                                                                                                                                                                                        |
+|                          | check\_distribution\_normal                        | 1.:1.:0.                              | 1.:0.:0.           | surface outward normal vector "nx:ny:nz"                                                                                                                                                                                                 |
+|                          | check\_distribution\_velocity\_columns             | 4:5:6                                 | 3:4:5              | columns of the velocity vector vx:vy:vz in the data set (note that columns start at 0)                                                                                                                                                   |
+|                          | check\_distribution\_double                        | T                                     | F                  | use the double cosine A\*cos^n(theta) - B\*cos^m(theta) distribution instead of cos^n(theta)                                                                                                                                             |
+|                          | check\_distribution\_exponent                      | 2.0                                   | 1.0                | exponent n for the single cos^n(theta) distribution or exponent n of the A*cos^n(theta) term for the double cosine distribution                                                                                                          |
+|                          | check\_distribution\_A                             | 1.77                                  | None               | parameter A of the double cosine distribution (required if check\_distribution\_double=T)                                                                                                                                                |
+|                          | check\_distribution\_exponent2                     | 3.28                                  | None               | parameter m of the double cosine distribution (required if check\_distribution\_double=T)                                                                                                                                                |
+|                          | check\_distribution\_B                             | 0.90                                  | None               | parameter B of the double cosine distribution (required if check\_distribution\_double=T)                                                                                                                                                |
+|                          | check\_distribution\_tolerance                     | 0.02                                  | 0.01               | minimum allowed Kolmogorov-Smirnov p-value                                                                                                                                                                                               |
+|                          | check\_distribution\_bins                          | 100                                   | 60                 | number of cos(theta) bins used for the flux/polar plots (use more bins for higher particle numbers to resolve structure near the normal)                                                                                                 |
 | clean-up files after run | clean\_up\_files                                   | *_State_*                             | None               | remove all unwanted files directly after the run is completed. The wild card character is "*"                                                                                                                                            |
 
 ## L2 error file
@@ -707,6 +719,60 @@ Make sure to provide a file **command_line.ini** with multiple commands, e.g. fo
 ```
 MPI=2,4,6,8
 
+```
+
+## Check polar-angle distribution
+* Check the polar-angle distribution of particle velocities in an .h5 file against an analytical emission distribution using a Kolmogorov-Smirnov test
+* Supports the single cosine distribution dN/dOmega ~ cos^n(theta) and the double cosine distribution dN/dOmega ~ A\*cos^n(theta) - B\*cos^m(theta) (e.g. for sputtering distributions whose maximum is off-normal)
+* The polar angle theta is calculated between each particle's velocity vector and the supplied surface outward normal vector
+* Requires *h5py* python module (analyze will fail if the module cannot be found)
+* If `use_matplot_lib = T` is set, two plots are created per run: `<file>_distribution.png` (polar-angle PDF and flux per solid angle compared with the analytical distribution) and `<file>_distribution_polar.png` (polar lobe plot of the flux per solid angle)
+* Multiple checks can be defined in a single analyze.ini by supplying comma-separated lists for the options. Options given as a single value are used for every check, while lists must all have the same length. When more than one check is defined, the plots are named `<file>_check1_distribution.png`, `<file>_check2_distribution.png`, etc. where `<file>_check1_distribution.png` corresponds to the first column in the analyze.ini file.
+
+Template for copying to **analyze.ini** (single cosine distribution cos^n(theta))
+
+```
+! check the polar-angle distribution of emitted particle velocities against cos^n(theta)
+check_distribution_file             = particle_state.h5
+check_distribution_data_set         = PartData
+check_distribution_normal           = 1.:0.:0.
+check_distribution_velocity_columns = 3:4:5
+check_distribution_tolerance        = 0.01
+check_distribution_exponent         = 1.0
+```
+
+Template for copying to **analyze.ini** (double cosine distribution A\*cos^n(theta) - B\*cos^m(theta))
+
+```
+! check the polar-angle distribution of emitted particle velocities against
+! A*cos^n(theta) - B*cos^m(theta) (e.g. an off-normal sputtering lobe)
+check_distribution_file             = particle_state.h5
+check_distribution_data_set         = PartData
+check_distribution_normal           = 1.:0.:0.
+check_distribution_velocity_columns = 3:4:5
+check_distribution_tolerance        = 0.01
+check_distribution_double           = T
+check_distribution_exponent         = 0.95
+check_distribution_A                = 1.77
+check_distribution_exponent2        = 3.28
+check_distribution_B                = 0.90
+```
+
+Template for copying to **analyze.ini** (for multiple checks multiple checks)
+
+```
+! check the polar-angle distribution of emitted particle velocities against
+! cos^n(theta) (check 1) and A*cos^n(theta) - B*cos^m(theta) (check 2)
+check_distribution_file             = particle_state.h5
+check_distribution_data_set         = PartData
+check_distribution_normal           = 1.:0.:0.
+check_distribution_velocity_columns = 3:4:5
+check_distribution_tolerance        = 0.01
+check_distribution_double           = F                 ,F      ,F      ,T
+check_distribution_exponent         = 0.5               ,1.0    ,2.0    ,0.5
+check_distribution_A                = 2.00
+check_distribution_exponent2        = 3.0
+check_distribution_B                = 1.0
 ```
 
 ## Clean-up files
