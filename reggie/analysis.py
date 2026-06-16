@@ -191,12 +191,7 @@ def getAnalyzes(path, example, args):
                   error_name     =       options.get('L2_file_error_name','L_2') )
     # fmt: on
     if L2ErrorFile.file:
-        if L2ErrorFile.tolerance_type in ('absolute', 'delta', '--delta'):
-            L2ErrorFile.tolerance_type = "absolute"
-        elif L2ErrorFile.tolerance_type in ('relative', "--relative"):
-            L2ErrorFile.tolerance_type = "relative"
-        else:
-            raise Exception(tools.red(f"initialization of L2 error from file failed. [L2_file_tolerance_type = {L2ErrorFile.tolerance_type}] not accepted."))
+        L2ErrorFile.tolerance_type = tools.normalize_tolerance_type(L2ErrorFile.tolerance_type, "L2_file_tolerance_type")
         analyze.append(Analyze_L2_file(L2ErrorFile))
 
     # 2.1   L2 error upper limit
@@ -384,12 +379,7 @@ def getAnalyzes(path, example, args):
                     option          = options.get('integrate_line_option'),
                     multiplier      = options.get('integrate_line_multiplier',1) )
     if all([IntegrateLine.file,  IntegrateLine.delimiter, IntegrateLine.columns, IntegrateLine.integral_value]) :
-        if IntegrateLine.tolerance_type in ('absolute', 'delta', '--delta') :
-            IntegrateLine.tolerance_type = "absolute"
-        elif IntegrateLine.tolerance_type in ('relative', "--relative") :
-            IntegrateLine.tolerance_type = "relative"
-        else :
-            raise Exception(tools.red(f"initialization of integrate line failed. integrate_line_tolerance_type '{IntegrateLine.tolerance_type}' not accepted."))
+        IntegrateLine.tolerance_type = tools.normalize_tolerance_type(IntegrateLine.tolerance_type, "integrate_line_tolerance_type")
         analyze.append(Analyze_integrate_line(IntegrateLine))
 
     # 2.10   compare data file column
@@ -431,12 +421,7 @@ def getAnalyzes(path, example, args):
                             tolerance_type   = options.get('compare_across_commands_tolerance_type','absolute'),
                             reference        = options.get('compare_across_commands_reference',0) )
     if all([CompareAcrossCommands.file, CompareAcrossCommands.column_delimiter, CompareAcrossCommands.column_index, CompareAcrossCommands.line_number, CompareAcrossCommands.reference ]) :
-        if CompareAcrossCommands.tolerance_type in ('absolute', 'delta', '--delta') :
-            CompareAcrossCommands.tolerance_type = "absolute"
-        elif CompareAcrossCommands.tolerance_type in ('relative', "--relative") :
-            CompareAcrossCommands.tolerance_type = "relative"
-        else :
-            raise Exception(tools.red(f"initialization of compare across commands failed. compare_across_commands_tolerance_type '{CompareAcrossCommands.tolerance_type}' not accepted."))
+        CompareAcrossCommands.tolerance_type = tools.normalize_tolerance_type(CompareAcrossCommands.tolerance_type, "compare_across_commands_tolerance_type")
         analyze.append(Analyze_compare_across_commands(CompareAcrossCommands))
     # fmt: on
 
@@ -1179,13 +1164,9 @@ class Analyze_h5diff(Analyze, ExternalCommand):
 
         # Check tolerance type (absolute or relative) and set the correct h5diff command line argument
         for compare in range(self.nCompares):
-            tolerance_type_loc = self.prms["tolerance_type"][compare]
-            if tolerance_type_loc in ('absolute', 'delta', '--delta'):
-                self.prms["tolerance_type"][compare] = "--delta"
-            elif tolerance_type_loc in ('relative', "--relative"):
-                self.prms["tolerance_type"][compare] = "--relative"
-            else:
-                raise Exception(tools.red(f"initialization of h5diff failed. h5diff_tolerance_type '{tolerance_type_loc}' not accepted."))
+            # h5diff only accepts --delta or --relative, but normalize_tolerance_type returns absolute or relative
+            tolerance_for_h5diff = tools.normalize_tolerance_type(self.prms["tolerance_type"][compare], "h5diff_tolerance_type")
+            self.prms["tolerance_type"][compare] = "--delta" if (tolerance_for_h5diff == "absolute") else "--relative"
 
         # Check dataset sorting
         for compare in range(self.nCompares):
@@ -2693,13 +2674,7 @@ class Analyze_compare_data_file(Analyze):
 
         # Check tolerance type (absolute or relative) and set the correct h5diff command line argument
         for compare in range(self.nCompares):
-            tolerance_type_loc = self.prms["tolerance_type"][compare]
-            if tolerance_type_loc in ('absolute', 'delta', '--delta'):
-                self.prms["tolerance_type"][compare] = "absolute"
-            elif tolerance_type_loc in ('relative', "--relative"):
-                self.prms["tolerance_type"][compare] = "relative"
-            else:
-                raise Exception(tools.red(f"initialization of compare_data_file failed. compare_data_file_tolerance_type '{tolerance_type_loc}' not accepted."))
+            self.prms["tolerance_type"][compare] = tools.normalize_tolerance_type(self.prms["tolerance_type"][compare], "compare_data_file_tolerance_type")
 
             line_loc = self.prms["line"][compare]
             if line_loc == 'last':
