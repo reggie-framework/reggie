@@ -191,12 +191,7 @@ def getAnalyzes(path, example, args):
                   error_name     =       options.get('L2_file_error_name','L_2') )
     # fmt: on
     if L2ErrorFile.file:
-        if L2ErrorFile.tolerance_type in ('absolute', 'delta', '--delta'):
-            L2ErrorFile.tolerance_type = "absolute"
-        elif L2ErrorFile.tolerance_type in ('relative', "--relative"):
-            L2ErrorFile.tolerance_type = "relative"
-        else:
-            raise Exception(tools.red(f"initialization of L2 error from file failed. [L2_file_tolerance_type = {L2ErrorFile.tolerance_type}] not accepted."))
+        L2ErrorFile.tolerance_type = tools.normalize_tolerance_type(L2ErrorFile.tolerance_type, "L2_file_tolerance_type")
         analyze.append(Analyze_L2_file(L2ErrorFile))
 
     # 2.1   L2 error upper limit
@@ -384,12 +379,7 @@ def getAnalyzes(path, example, args):
                     option          = options.get('integrate_line_option'),
                     multiplier      = options.get('integrate_line_multiplier',1) )
     if all([IntegrateLine.file,  IntegrateLine.delimiter, IntegrateLine.columns, IntegrateLine.integral_value]) :
-        if IntegrateLine.tolerance_type in ('absolute', 'delta', '--delta') :
-            IntegrateLine.tolerance_type = "absolute"
-        elif IntegrateLine.tolerance_type in ('relative', "--relative") :
-            IntegrateLine.tolerance_type = "relative"
-        else :
-            raise Exception(tools.red(f"initialization of integrate line failed. integrate_line_tolerance_type '{IntegrateLine.tolerance_type}' not accepted."))
+        IntegrateLine.tolerance_type = tools.normalize_tolerance_type(IntegrateLine.tolerance_type, "integrate_line_tolerance_type")
         analyze.append(Analyze_integrate_line(IntegrateLine))
 
     # 2.10   compare data file column
@@ -431,12 +421,7 @@ def getAnalyzes(path, example, args):
                             tolerance_type   = options.get('compare_across_commands_tolerance_type','absolute'),
                             reference        = options.get('compare_across_commands_reference',0) )
     if all([CompareAcrossCommands.file, CompareAcrossCommands.column_delimiter, CompareAcrossCommands.column_index, CompareAcrossCommands.line_number, CompareAcrossCommands.reference ]) :
-        if CompareAcrossCommands.tolerance_type in ('absolute', 'delta', '--delta') :
-            CompareAcrossCommands.tolerance_type = "absolute"
-        elif CompareAcrossCommands.tolerance_type in ('relative', "--relative") :
-            CompareAcrossCommands.tolerance_type = "relative"
-        else :
-            raise Exception(tools.red(f"initialization of compare across commands failed. compare_across_commands_tolerance_type '{CompareAcrossCommands.tolerance_type}' not accepted."))
+        CompareAcrossCommands.tolerance_type = tools.normalize_tolerance_type(CompareAcrossCommands.tolerance_type, "compare_across_commands_tolerance_type")
         analyze.append(Analyze_compare_across_commands(CompareAcrossCommands))
     # fmt: on
 
@@ -483,6 +468,48 @@ class Analyze:  # main class from which all analyze functions are derived
     total_errors = 0  # errors gathered during run
     total_infos = 0  # information/warnings gathered during run
 
+    @staticmethod
+    def _parse_bool(value, name):
+        """Parse a user-supplied True/False parameter"""
+        if isinstance(value, bool):
+            return value
+        v = str(value).lower()
+        if v in ('true', 't'):
+            return True
+        if v in ('false', 'f'):
+            return False
+        raise Exception(tools.red(f'{name} is set neither True/False, check the parameter'))
+
+    @classmethod
+    def fail_run(cls, run, s, do_print=True):
+        if do_print:
+            print(s)
+        run.analyze_results.append(s)       # append info for summary of errors
+        run.analyze_successful = False      # set analyzes to fail
+        cls.total_errors += 1               # increment errror counter
+
+    def _expand_prms(self, flag_value, flag_name):
+        """Parse a one_per_run flag and normalize self.prms into equal-length lists.
+
+        Returns (one_per_run: bool, n: int)."""
+        # parse flag string to bool
+        one_per_run = self._parse_bool(flag_value, flag_name)
+        # build dictionary
+        for key, prm in self.prms.items():
+            # Check if prm is not of type 'list'
+            if not isinstance(prm, list):
+                # create list with prm as entry
+                self.prms[key] = [prm]
+        # Get the maximum number of values/options for key/parameter
+        n = max(len(prm) for prm in self.prms.values())
+        # broadcast single-value entries to match the longest list
+        for key, prm in self.prms.items():
+            if len(prm) == 1:
+                self.prms[key] = prm * n
+        if any(len(prm) != n for prm in self.prms.values()):
+            raise Exception(tools.red(f"Number of multiple data sets for multiple {flag_name.split('_')[0]} is inconsistent. Please ensure all options have the same length or length=1."))
+        return one_per_run, n
+
 
 # ==================================================================================================
 
@@ -511,10 +538,7 @@ class Clean_up_files:
             for wildcard in wildcards:
                 if not os.path.exists(wildcard):
                     s = tools.red(f"Clean_up_files: Could not find file=[{wildcard}] for removing")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
                 print(tools.yellow(f"[remove_folder]: deleting file '{wildcard}'"))
                 os.remove(wildcard)
@@ -556,14 +580,7 @@ class Analyze_L2_file(Analyze):
                 L2_errors = np.array(analyze_functions.get_last_L2_error(run.stdout, self.error_name, LastLines))
             except Exception:
                 s = tools.red("L2 analysis failed: L2 error could not be read from {} (searching for {} in the last {} lines)".format('std.out', self.error_name, LastLines))
-                print(s)
-
-                # 1.1.1   append info for summary of errors
-                run.analyze_results.append(s)
-
-                # 1.1.2   set analyzes to fail
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
                 continue  # with next run
 
             # 1.2   Check existence of the reference file
@@ -571,10 +588,7 @@ class Analyze_L2_file(Analyze):
 
             if not os.path.exists(path_ref):
                 s = tools.red(f"Analyze_L2_file: cannot find reference L2 error file=[{self.file}]")
-                print(s)
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
                 continue  # with next run
             # 1.2.1   Read content of the reference file and store in self.file_data list
             self.file_data = []
@@ -587,41 +601,20 @@ class Analyze_L2_file(Analyze):
                 L2_errors_ref = np.array(analyze_functions.get_last_L2_error(self.file_data, self.error_name, LastLines))
             except Exception:
                 s = tools.red(f"L2 analysis failed: L2 error could not be read from {self.file} (searching for {self.error_name} in the last {LastLines} lines)")
-                print(s)
-
-                # 1.2.1   append info for summary of errors
-                run.analyze_results.append(s)
-
-                # 1.2.2   set analyzes to fail
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
                 continue  # with next run
 
             # 1.3   Check length of L2 errors in std out and reference file
             if len(L2_errors) != len(L2_errors_ref):
                 s = tools.red(f"L2 analysis failed: number of L2 errors in std out [{len(L2_errors)}] do not match number of L2 errors in ref file [{len(L2_errors_ref)}]. They must be the same.")
-                print(s)
-
-                # 1.2.1   append info for summary of errors
-                run.analyze_results.append(s)
-
-                # 1.2.2   set analyzes to fail
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
                 continue  # with next run
 
             # 1.4   calculate difference and determine compare with tolerance
             success = tools.diff_lists(L2_errors, L2_errors_ref, self.L2_tolerance, self.L2_tolerance_type)
             if not all(success):
                 s = tools.red("Mismatch in L2 error comparison with reference file data: " + ", ".join([f"[{L2_errors[i]} with {L2_errors_ref[i]}]" for i in range(len(success)) if not success[i]]))
-                print(s)
-
-                # 1.4.1   append info for summary of errors
-                run.analyze_results.append(s)
-
-                # 1.4.2   set analyzes to fail
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
 
     def __str__(self):
         return f"perform L2 error comparison with L2 errors in file [{self.file}], tolerance={self.L2_tolerance} ({self.L2_tolerance_type}) for error named [{self.error_name}]"
@@ -657,28 +650,14 @@ class Analyze_L2(Analyze):
                 L2_errors = np.array(analyze_functions.get_last_L2_error(run.stdout, self.error_name, LastLines))
             except Exception:
                 s = tools.red("L2 analysis failed: L2 error could not be read from {} (searching for {} in the last {} lines)".format('std.out', self.error_name, LastLines))
-                print(s)
-
-                # 1.1.1   append info for summary of errors
-                run.analyze_results.append(s)
-
-                # 1.1.2   set analyzes to fail
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
                 continue
 
             L2_errors_str = "[" + ", ".join(str(x) for x in L2_errors) + "]"
             # 1.2   if one L2 errors is larger than the tolerance -> fail
             if (L2_errors > self.L2_tolerance).any():
                 s = tools.red("analysis failed. L2 error: L2_errors > " + str(self.L2_tolerance) + " " + L2_errors_str)
-                print(s)
-
-                # 1.3   append info for summary of errors
-                run.analyze_results.append(s)
-
-                # 1.4   set analyzes to fail
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
             else:
                 print(tools.indent(tools.blue(f'{self.error_name}: {L2_errors_str}'), 2))
 
@@ -731,11 +710,8 @@ class Analyze_Convtest_h(Analyze):
         nRuns = len(runs)
         if nRuns < 2:
             for run in runs:
-                s = "analysis failed: h-convergence not possible with only 1 run"
-                print(tools.red(s))
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                s = tools.red("analysis failed: h-convergence not possible with only 1 run")
+                Analyze.fail_run(run, s)
                 return
         if len(self.cells) == nRuns:
             # 1.1   read the polynomial degree from the first run -> must not change!
@@ -751,14 +727,7 @@ class Analyze_Convtest_h(Analyze):
                         L2_errors_test = np.array(analyze_functions.get_last_L2_error(run.stdout, self.error_name, LastLines))  # noqa: F841 local variable 'test' is assigned to but never used
                     except Exception:  # noqa: PERF203 `try`-`except` within a loop incurs performance
                         s = tools.red("h-convergence failed: L2 error could not be read from {} (searching for {} in the last {} lines)".format('std.out', self.error_name, LastLines))
-                        print(s)
-
-                        # 1.2.1   append info for summary of errors
-                        run.analyze_results.append(s)
-
-                        # 1.2.2   set analyzes to fail
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                 return
 
             # 1.3   get number of variables from L2 error array
@@ -817,20 +786,14 @@ class Analyze_Convtest_h(Analyze):
 
                 # 1.7     interate over all runs
                 for run in runs:
-                    # 1.6.1   add failed info if success rate is not reached to all runs
-                    run.analyze_results.append("analysis failed: h-convergence " + str(success))
-
-                    # 1.6.2   set analyzes to fail if success rate is not reached for all runs
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    # add failed info if success rate is not reached to all runs
+                    Analyze.fail_run(run, f"analysis failed: h-convergence {success}", do_print=False)
 
         else:
             s = "Failed: cannot perform h-convergence test, because number of successful runs must equal the number of cells"
             print(tools.red(s))
             for run in runs:
-                run.analyze_results.append(s)  # append info for summary of errors
-                run.analyze_successful = False  # set analyzes to fail
-                Analyze.total_errors += 1  # increment errror counter
+                Analyze.fail_run(run, s, do_print=False)
             print(tools.yellow("nRun  " + str(nRuns)))
             print(tools.yellow("cells " + str(len(self.cells))))
 
@@ -907,11 +870,8 @@ class Analyze_Convtest_t(Analyze):
         nRuns = len(runs)
         if nRuns < 2:
             for run in runs:
-                s = "analysis failed: t-convergence not possible with only 1 run"
-                print(tools.red(s))
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                s = tools.red("analysis failed: t-convergence not possible with only 1 run")
+                Analyze.fail_run(run, s)
                 return
         if self.number_of_x_values in (-1, nRuns):
             # 1.1   for method 1.) or 3.) det the values for x_values from std.out
@@ -926,14 +886,7 @@ class Analyze_Convtest_t(Analyze):
                                 self.x_values_test = np.array(analyze_functions.get_initial_timesteps(run.stdout, self.get_x_values))
                             except Exception:  # noqa: PERF203 `try`-`except` within a loop incurs performance
                                 s = tools.red(f"t-convergence failed: could not read [{self.get_x_values}] from output (searching in all lines)")
-                                print(s)
-
-                                # 1.2.1   append info for summary of errors
-                                run.analyze_results.append(s)
-
-                                # 1.2.2   set analyzes to fail
-                                run.analyze_successful = False
-                                Analyze.total_errors += 1
+                                Analyze.fail_run(run, s)
                         return
                 elif self.method == 3:  # 3.) total number of timesteps (automatically from std.out)
                     try:
@@ -944,14 +897,7 @@ class Analyze_Convtest_t(Analyze):
                                 self.x_values_test = np.array(analyze_functions.get_last_number_of_timesteps(run.stdout, self.get_x_values, LastLines))
                             except Exception:  # noqa: PERF203 `try`-`except` within a loop incurs performance
                                 s = tools.red("t-convergence failed: could not read [{}] from {} (searching in the last {} lines)".format('std.out', self.get_x_values, LastLines))
-                                print(s)
-
-                                # 1.2.1   append info for summary of errors
-                                run.analyze_results.append(s)
-
-                                # 1.2.2   set analyzes to fail
-                                run.analyze_successful = False
-                                Analyze.total_errors += 1
+                                Analyze.fail_run(run, s)
                         return
                 # transpose the vector and reduce the dimension of the array from 2 to 1
                 self.x_values = np.transpose(self.x_values)
@@ -967,14 +913,7 @@ class Analyze_Convtest_t(Analyze):
                         L2_errors_test = np.array(analyze_functions.get_last_L2_error(run.stdout, self.error_name, LastLines))  # noqa: F841 local variable 'test' is assigned to but never used
                     except Exception:  # noqa: PERF203 `try`-`except` within a loop incurs performance
                         s = tools.red("t-convergence failed: some L2 errors could not be read from {} (searching for '{}' in the last {} lines)".format('std.out', self.error_name, LastLines))
-                        print(s)
-
-                        # 1.2.1   append info for summary of errors
-                        run.analyze_results.append(s)
-
-                        # 1.2.2   set analyzes to fail
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                 return
 
             # 1.3   get number of variables from L2 error array
@@ -1036,20 +975,14 @@ class Analyze_Convtest_t(Analyze):
 
                 # 1.7     interate over all runs
                 for run in runs:
-                    # 1.6.1   add failed info if success rate is not reached to all runs
-                    run.analyze_results.append("analysis failed: t-convergence " + str(success))
-
-                    # 1.6.2   set analyzes to fail if success rate is not reached for all runs
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    # add failed info if success rate is not reached to all runs
+                    Analyze.fail_run(run, f"analysis failed: t-convergence {success}", do_print=False)
 
         else :  # fmt: skip
             s = f"Failed: cannot perform t-convergence test, because number of successful runs must equal the number of supplied {self.name} in the user-supplied list"
             print(tools.red(s))
             for run in runs:
-                run.analyze_results.append(s)  # append info for summary of errors
-                run.analyze_successful = False  # set analyzes to fail
-                Analyze.total_errors += 1  # increment errror counter
+                Analyze.fail_run(run, s, do_print=False)
             print(tools.yellow(f"[nRun] = [{nRuns}]"))
             print(tools.yellow(f"[{self.name}] = [{len(self.x_values)}] values for x_values (must equal the number of nRun)"))
 
@@ -1103,11 +1036,8 @@ class Analyze_Convtest_p(Analyze):
         nRuns = len(runs)
         if nRuns < 2:
             for run in runs:
-                s = "analysis failed: p-convergence not possible with only 1 run"
-                print(tools.red(s))
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                s = tools.red("analysis failed: p-convergence not possible with only 1 run")
+                Analyze.fail_run(run, s)
                 return
 
         if len(p) == nRuns:
@@ -1121,14 +1051,7 @@ class Analyze_Convtest_p(Analyze):
                         L2_errors_test = np.array(analyze_functions.get_last_L2_error(run.stdout, self.error_name, LastLines))  # noqa: F841 local variable 'test' is assigned to but never used
                     except Exception:  # noqa: PERF203 `try`-`except` within a loop incurs performance
                         s = tools.red("p-convergence failed: some L2 errors could not be read from {} (searching for '{}' in the last {} lines)".format('std.out', self.error_name, LastLines))
-                        print(s)
-
-                        # 1.2.1   append info for summary of errors
-                        run.analyze_results.append(s)
-
-                        # 1.2.2   set analyzes to fail
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                 return
 
             # 2.3   get number of variables from L2 error array
@@ -1192,21 +1115,15 @@ class Analyze_Convtest_p(Analyze):
 
                 # 2.8     interate over all runs
                 for run in runs:
-                    # 2.8.1   add failed info if success rate is not reached to all runs
-                    run.analyze_results.append("analysis failed: p-convergence " + str(success))
-
-                    # 2.8.2   set analyzes to fail if success rate is not reached for all runs
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    # add failed info if success rate is not reached to all runs
+                    Analyze.fail_run(run, f"analysis failed: p-convergence {success}", do_print=False)
 
                     # global_errors+=1
         else :  # fmt: skip
             s = "Failed: cannot perform p-convergence test, because number of successful runs must equal the number of polynomial degrees p"
             print(tools.red(s))
             for run in runs:
-                run.analyze_results.append(s)  # append info for summary of errors
-                run.analyze_successful = False  # set analyzes to fail
-                Analyze.total_errors += 1  # increment errror counter
+                Analyze.fail_run(run, s, do_print=False)
             print(tools.yellow("nRun   " + str(nRuns)))
             print(tools.yellow("len(p) " + str(len(p))))
 
@@ -1219,8 +1136,6 @@ class Analyze_Convtest_p(Analyze):
 
 class Analyze_h5diff(Analyze, ExternalCommand):
     def __init__(self, h5diff):
-        # Set number of diffs per run [True/False]
-        self.one_diff_per_run = h5diff.one_diff_per_run in ('True', 'true', 't', 'T')
         self.allow_reorder = h5diff.allow_reorder in ('True', 'true', 't', 'T')
 
         # Create dictionary for all keys/parameters and insert a list for every value/options
@@ -1242,38 +1157,16 @@ class Analyze_h5diff(Analyze, ExternalCommand):
             "var_attribute": h5diff.var_attribute,
             "var_name": h5diff.var_name,
         }
-        for key, prm in self.prms.items():
-            # Check if prm is not of type 'list'
-            if not isinstance(prm, list):
-                # create list with prm as entry
-                self.prms[key] = [prm]
-
-        # Get the number of values/options for each key/parameter
-        numbers = {key: len(prm) for key, prm in self.prms.items()}
-
         ExternalCommand.__init__(self)
 
-        # Get maximum number of values (from all possible keys)
-        self.nCompares = numbers[max(numbers, key=numbers.get)]  # ty:ignore[no-matching-overload]
-
-        # Check all numbers and if a key has only 1 number, increase the number to maximum and use the same value for all
-        for key, number in numbers.items():
-            if number == 1:
-                self.prms[key] = [self.prms[key][0] for i in range(self.nCompares)]
-                numbers[key] = self.nCompares
-
-        if any((number != self.nCompares) for number in numbers.values()):
-            raise Exception(tools.red("Number of multiple data sets for multiple h5diffs is inconsistent. Please ensure all options have the same length or length=1."))
+        # expand options to allows multiple analyzes with only one analyze.ini
+        self.one_diff_per_run, self.nCompares = self._expand_prms(h5diff.one_diff_per_run, 'h5diff_one_diff_per_run')
 
         # Check tolerance type (absolute or relative) and set the correct h5diff command line argument
         for compare in range(self.nCompares):
-            tolerance_type_loc = self.prms["tolerance_type"][compare]
-            if tolerance_type_loc in ('absolute', 'delta', '--delta'):
-                self.prms["tolerance_type"][compare] = "--delta"
-            elif tolerance_type_loc in ('relative', "--relative"):
-                self.prms["tolerance_type"][compare] = "--relative"
-            else:
-                raise Exception(tools.red(f"initialization of h5diff failed. h5diff_tolerance_type '{tolerance_type_loc}' not accepted."))
+            # h5diff only accepts --delta or --relative, but normalize_tolerance_type returns absolute or relative
+            tolerance_for_h5diff = tools.normalize_tolerance_type(self.prms["tolerance_type"][compare], "h5diff_tolerance_type")
+            self.prms["tolerance_type"][compare] = "--delta" if (tolerance_for_h5diff == "absolute") else "--relative"
 
         # Check dataset sorting
         for compare in range(self.nCompares):
@@ -1382,17 +1275,11 @@ class Analyze_h5diff(Analyze, ExternalCommand):
 
                 if not os.path.exists(path):
                     s = tools.red(f"Analyze_h5diff: file does not exist, file=[{path}]")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
                 if not os.path.exists(path_ref_target):
                     s = tools.red(f"Analyze_h5diff: reference file does not exist, file=[{path_ref_target}]")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
 
                 # Open h5 file and read container info
@@ -1440,10 +1327,7 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                             b1 = b2
                     except Exception as e:
                         s = tools.red(f"Analyze_h5diff: Could not transpose the .h5 dataset [{data_set_loc_file}] array under in file [{path}] (h5diff_flip = T). Error message [{e}]")
-                        print(s)
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                         continue
 
                     shape1 = b1.shape
@@ -1456,10 +1340,7 @@ class Analyze_h5diff(Analyze, ExternalCommand):
 
                 except Exception as e:
                     s = tools.red(f"Analyze_h5diff: Could not open .h5 dataset [{data_set_loc_file}] under in file [{path}]. Error message [{e}]")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
 
                 # Read the reference
@@ -1468,10 +1349,7 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                     shape2 = b2.shape
                 except Exception as e:
                     s = tools.red(f"Analyze_h5diff: Could not open .h5 dataset [{data_set_loc_ref}] under in file [{path_ref_target}]. Error message [{e}]")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
 
                 # 1.1.1.1   Reshape the dataset if required (or transpose it when flip_loc=T)
@@ -1485,10 +1363,7 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                     # Check if shape is being increased
                     if reshape_value_loc > old_value:
                         s = tools.red(f"Analyze_h5diff: Reshaping is currently only implemented with the purpose to reduce array sizes. You are trying to increase the array shape from {old_shape} to {newShape}")
-                        print(s)
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                         continue
                     # Check if row or column is changed
                     if reshape_dim_loc == 0:
@@ -1504,10 +1379,7 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                             "Analyze_h5diff: Reshaping is currently only implemented for specific arrays (dim 0 and 1 reshape 2D array) "
                             "and dim 3 and 4 reshape the last dimension of 3D and 4D arrays. Use h5diff_reshape_dim=1 or 2)"
                         )
-                        print(s)
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                         continue
 
                     shape1 = b1_reshaped.shape
@@ -1561,14 +1433,7 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                             f"h5diff failed because datasets for [{data_set_loc_file},{data_set_loc_ref}] are not comparable due to different shapes: Files [{f1}] and [{f2}] have shapes [{b1.shape}] and [{b2.shape}]"
                         )
                     )
-                    print(" " + self.result)
-
-                    # 1.1.3   add failed info if return a code != 0 to run
-                    run.analyze_results.append(self.result)
-
-                    # 1.1.4   set analyzes to fail if return a code != 0
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, " " + self.result)
                 else:
                     # 1.2.0 When sorting is used, the sorted array is written to the original .h5 file with a new name
                     if sort_loc:
@@ -1586,10 +1451,7 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                                 "Analyze_h5diff: Sorting failed, because currently only sorting of 2-dimensional arrays is implemented.\n"
                                 f"This means, that sorting by rows (dim=1) and columns (dim=2) is allowed. However, dim=[{sort_dim_loc}]"
                             )
-                            print(s)
-                            run.analyze_results.append(s)
-                            run.analyze_successful = False
-                            Analyze.total_errors += 1
+                            Analyze.fail_run(run, s)
                             continue
 
                         data_set_loc_file_new = data_set_loc_file + "_sorted"
@@ -1692,16 +1554,13 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                                     if total_entries > num_entries:
                                         indices += list(range(max(num_entries, total_entries - num_entries), total_entries))
                                     # print out differences
-                                    print(s)
                                     print(tools.red("{:<20} | {:<45} | {:<45}".format('Index', var_name_loc, var_name_loc + '_ref')) + tools.yellow(" | {:<20} | {:<20}".format('Absolute Diff', 'Relative Diff')))
                                     print('-' * 160)
                                     for i in indices:
                                         abs_diff = np.abs(real_diffs[i] - real_diffs_ref[i])
                                         rel_diff = abs_diff / np.abs(real_diffs_ref[i]) if np.abs(real_diffs_ref[i]) > 0.0 else 1.0
                                         print(tools.red(f"{non_masked_indices[i]:<20} | {real_diffs[i]!s:<45} | {real_diffs_ref[i]!s:<45}") + tools.yellow(f" | {abs_diff!s:<20} | {rel_diff!s:<20}"))
-                                    run.analyze_results.append(s)
-                                    run.analyze_successful = False
-                                    Analyze.total_errors += 1
+                                    Analyze.fail_run(run, s)
                                 else:
                                     s = s.replace("Comparison failed for", "Comparison ignored for")
                                     s2 = f", but {max_differences_loc} difference(s) are allowed (given by h5diff_max_differences). This analysis is therefore marked as passed."
@@ -1712,10 +1571,7 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                                 NbrOfMatches = np.sum(data_compare)
                                 if NbrOfMatches == 0:
                                     s = tools.red(f"Analyze_h5diff: Found zero matching values. Wrong data file under [{path}] or format that could possibly not be read correctly")
-                                    print(s)
-                                    run.analyze_results.append(s)
-                                    run.analyze_successful = False
-                                    Analyze.total_errors += 1
+                                    Analyze.fail_run(run, s)
                                 else:
                                     if var_name_loc is not None:
                                         s = tools.blue(tools.indent(f"Compared {var_name_loc} of {path} with {reference_file_loc} and got {NbrOfMatches} matching columns", 2))
@@ -1728,15 +1584,8 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                             exc_type, _, exc_tb = sys.exc_info()
                             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
                             s = f"{exc_type}, {fname}, {exc_tb.tb_lineno}"
-                            self.result = tools.red("Python array comparison failed. (Exception=" + str(ex) + "): " + s)
-                            print(" " + self.result)
-
-                            # 1.3.1   Add failed info if return a code != 0 to run
-                            run.analyze_results.append(tools.red(f"Python array comparison failed. Comparison failed with Exception={ex}"))
-
-                            # 1.3.2   Set analyzes to fail if return a code != 0
-                            run.analyze_successful = False
-                            Analyze.total_errors += 1
+                            self.result = tools.red(f"Python array comparison failed. Comparison failed with Exception={ex}")
+                            Analyze.fail_run(run, " " + self.result)
 
                     else:
                         # Execute the command 'cmd' = 'h5diff -r [--type] [value] [.h5 file] [.h5 reference] [DataSetName_file] [DataSetName_reference]'
@@ -1776,10 +1625,7 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                                 # Check if both datasets have the same shape
                                 if b1.shape != b2.shape:
                                     s = tools.red(f"Analyze_h5diff: Datasets [{data_set_loc_file}] and [{data_set_loc_ref}] have different shapes [{b1.shape}] and [{b2.shape}]. Cannot compare them.")
-                                    print(s)
-                                    run.analyze_results.append(s)
-                                    run.analyze_successful = False
-                                    Analyze.total_errors += 1
+                                    Analyze.fail_run(run, s)
                                     f1.close()
                                     f2.close()
                                     continue
@@ -1824,10 +1670,7 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                                         s = tools.red(
                                             f"Reordered datasets [{data_set_loc_file}] and [{data_set_loc_ref}] have {NbrOfDifferences} differences after reordering. This analysis is therefore marked as failed."
                                         )
-                                        print(s)
-                                        run.analyze_results.append(s)
-                                        run.analyze_successful = False
-                                        Analyze.total_errors += 1
+                                        Analyze.fail_run(run, s)
                                 else:
                                     s = tools.purple(f"Reordered datasets [{data_set_loc_file}] and [{data_set_loc_ref}] have no differences after reordering. This analysis is therefore marked as passed.")
                                     print(s)
@@ -1898,9 +1741,6 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
     # Improvement: https://discourse.vtk.org/t/introducing-a-new-data-comparison-utility-in-vtk/12549/9
     # Comparison of two vtk arrays directly in python so that converting in numpy arrays is not necessary, currently only in C++ and not yet as python utility function
     def __init__(self, vtudiff):
-        # Set number of diffs per run [True/False]
-        self.one_diff_per_run = vtudiff.one_diff_per_run in ('True', 'true', 't', 'T')
-
         # Create dictionary for all keys/parameters and insert a list for every value/options
         self.prms = {
             "reference_file": vtudiff.reference_file,
@@ -1917,28 +1757,10 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
             "flip": vtudiff.flip,
             "max_differences": vtudiff.max_differences,
         }
-        for key, prm in self.prms.items():
-            # Check if prm is not of type 'list'
-            if not isinstance(prm, list):
-                # create list with prm as entry
-                self.prms[key] = [prm]
-
-        # Get the number of values/options for each key/parameter
-        numbers = {key: len(prm) for key, prm in self.prms.items()}
-
         ExternalCommand.__init__(self)
 
-        # Get maximum number of values (from all possible keys)
-        self.nCompares = numbers[max(numbers, key=numbers.get)]  # ty:ignore[no-matching-overload]
-
-        # Check all numbers and if a key has only 1 number, increase the number to maximum and use the same value for all
-        for key, number in numbers.items():
-            if number == 1:
-                self.prms[key] = [self.prms[key][0] for i in range(self.nCompares)]
-                numbers[key] = self.nCompares
-
-        if any((number != self.nCompares) for number in numbers.values()):
-            raise Exception(tools.red("Number of multiple data sets for multiple vtudiffs is inconsistent. Please ensure all options have the same length or length=1."))
+        # expand options to allows multiple analyzes with only one analyze.ini
+        self.one_diff_per_run, self.nCompares = self._expand_prms(vtudiff.one_diff_per_run, 'vtudiff_one_diff_per_run')
 
         # Check dataset sorting
         for compare in range(self.nCompares):
@@ -2085,10 +1907,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                 # abort for flip/reshape/sort since only core functionality is adapted from h5diff and not tested/optimized yet
                 if flip_loc or reshape_loc or sort_loc:
                     s = tools.red("Analyze_vtudiff: flip, reshape, and sort are not yet tested for .vtu files. Please set vtudiff_flip, vtudiff_reshape, and/or vtudiff_sort to False.")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
 
                 # Copy new reference file: This is completely independent of the outcome of the current vtudiff
@@ -2104,17 +1923,11 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
 
                 if not os.path.exists(path):
                     s = tools.red(f"Analyze_vtudiff: file does not exist, file=[{path}]")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
                 if not os.path.exists(path_ref_target):
                     s = tools.red(f"Analyze_vtudiff: reference file does not exist, file=[{path_ref_target}]")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
 
                 # 1.1.1 Setup reader to read data from the vtu file
@@ -2126,9 +1939,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                 # Sanity check if file was read
                 if reader.CanReadFile(path) != 1:
                     s = tools.red(f"Analyze_vtudiff: Could not open .vtu file [{path}]. Please make sure the provided reference file is a .vtu file and the result of the simulation is converted using piclas2vtk!")
-                    run.analyze_results.appends(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s, do_print=False)
                     continue
 
                 # read reference data as unstructured grid
@@ -2141,9 +1952,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                     s = tools.red(
                         f"Analyze_vtudiff: Could not open .vtu file [{path_ref_target}]. Please make sure the provided reference file is a .vtu file and the result of the simulation is converted using piclas2vtk!"
                     )
-                    run.analyze_results.appends(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s, do_print=False)
                     continue
 
                 # 1.1.2 read in data and convert it to numpy array
@@ -2170,10 +1979,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                     s = tools.red(
                         f"Analyze_vtudiff: Could not read in the data from the vtk file [{file_loc}] or [{reference_file_loc}]. Please make sure the provided reference file is a .vtu file and the given array names exist! Error: {e}"
                     )
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
 
                 # flip, reshape, and sort are not correctly implemented yet, since the operation is applied on the full numpy array which contains all vtu arrays stacked along columns
@@ -2190,10 +1996,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                         vtu_data_ref = vtu_data_ref.transpose()
                 except Exception as e:
                     s = tools.red(f"Analyze_vtudiff: Could not transpose array under in file [{file_loc}] (vtudiff_flip = T). Error message [{e}]")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
 
                 data_shape = vtu_data.shape
@@ -2219,10 +2022,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                     # Check if shape is being increased
                     if reshape_value_loc > old_value:
                         s = tools.red(f"Analyze_vtudiff: Reshaping is currently only implemented with the purpose to reduce array sizes. You are trying to increase the array shape from {old_shape} to {newShape}")
-                        print(s)
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                         continue
                     # Check if row or column is changed
                     if reshape_dim_loc == 0:
@@ -2238,10 +2038,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                             "Analyze_vtudiff: Reshaping is currently only implemented for specific arrays (dim 0 and 1 reshape 2D array) "
                             "and dim 3 and 4 reshape the last dimension of 3D and 4D arrays. Use vtudiff_reshape_dim=1 or 2)"
                         )
-                        print(s)
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                         continue
 
                     data_shape = vtu_data.shape
@@ -2257,17 +2054,13 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                 # 1.2.0   sanity checks if data and reference data match
                 if data_shape != data_shape_ref:
                     s = tools.red(f"Analyze_vtudiff: Shape of the arrays in the vtk files [{file_loc}] and [{reference_file_loc}] do not match! Shapes: {data_shape}, {data_shape_ref} respectively!")
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s, do_print=False)
                     continue
                 if array_names_dims != array_names_dims_ref:
                     s = tools.red(
                         f"Analyze_vtudiff: Array names or number of vtk arrays in the vtk files [{file_loc}] (Arrays: {list(array_names_dims.keys())}) do not match with [{reference_file_loc}] (Arrays: {list(array_names_dims_ref.keys())})!"
                     )
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s, do_print=False)
                     continue
                 print(tools.indent(tools.yellow("Comparing %s vtk arrays with total of %s columns:"), 2) % (len(array_names_dims), data_shape[1]), list(array_names_dims.keys()))
 
@@ -2287,10 +2080,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                             "Analyze_vtudiff: Sorting failed, because currently only sorting of 2-dimensional arrays is implemented."
                             f"\nThis means, that sorting by rows (dim=1) and columns (dim=2) is allowed. However, dim=[{sort_dim_loc}]"
                         )
-                        print(s)
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                         continue
 
                     # In the following, compare the two sorted arrays instead of the original ones
@@ -2393,10 +2183,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                             offset += size
 
                         s = tools.red(f"Comparison failed for {array_name_loc} of [{path}] with [{reference_file_loc}] due to {nbr_of_differences} differences")
-                        print(s)
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                     else:
                         s = s.replace("Comparison failed for", "Comparison ignored for")
                         s2 = f", but {max_differences_loc} difference(s) are allowed (given by compare_data_file_max_differences). This analysis is therefore marked as passed."
@@ -2407,10 +2194,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                     NbrOfMatches = np.sum(data_compare)
                     if NbrOfMatches == 0:
                         s = tools.red(f"Analyze_compare_data_file: Found zero matching values. Wrong data file under [{path}] or format that could possibly not be read correctly")
-                        print(s)
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                     else:
                         s = tools.blue(tools.indent(f"Compared {array_name_loc} of {path} with {reference_file_loc} and got {data_shape} matching columns", 2))
                         print(s)
@@ -2460,10 +2244,7 @@ class Analyze_check_hdf5(Analyze):
             path = os.path.join(run.target_directory, self.file)
             if not os.path.exists(path):
                 s = tools.red(f"Analyze_check_hdf5: file does not exist, file=[{path}]")
-                print(s)
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
                 continue
 
             f = h5py.File(path, 'r')
@@ -2473,10 +2254,7 @@ class Analyze_check_hdf5(Analyze):
             # 1.2.1   Check if dataset exists
             if self.data_set not in f:
                 s = tools.red(f"Analyze_check_hdf5: [{self.data_set}] not found in file=[{path}]")
-                print(s)
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
                 continue
 
             # 1.3   Read the dataset from the hdf5 file
@@ -2485,10 +2263,7 @@ class Analyze_check_hdf5(Analyze):
             # 1.3.0   Check if data set is empty
             if min(b.shape) == 0:
                 s = tools.red(f"Analyze_check_hdf5: [{self.data_set}] has at least one empty dimension, shape={b.shape}")
-                print(s)
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
                 continue
 
             # 1.3.1   loop over each dimension supplied
@@ -2506,10 +2281,7 @@ class Analyze_check_hdf5(Analyze):
                         f"Analyze_check_hdf5: Bounding box check failed for i={i}, because currently only sorting of 2-dimensional arrays is implemented.\nThis means, "
                         f"that sorting by rows (dim=1) and columns (dim=2) is allowed. However, dim=[{self.span}] (parameter: check_hdf5_span)"
                     )
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
 
                 # 1.3.3   Check if all values are within the supplied interval
@@ -2524,12 +2296,7 @@ class Analyze_check_hdf5(Analyze):
                         s += tools.red(" [values found  < " + str(self.lower) + "]")
                     if upper_test:
                         s += tools.red("  and  [values found  > " + str(self.upper) + "]")
-                    print(s)
-                    run.analyze_results.append(s)
-
-                    # 1.3.4   set analyzes to fail if return a code != 0
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
 
     def __str__(self):
         return "check if the values of an hdf5 array are within specified limits: file= [" + str(self.file) + "], dataset= [" + str(self.data_set) + "]"
@@ -2624,24 +2391,6 @@ class Analyze_check_distribution(Analyze):
 
     def __init__(self, CheckDistribution):
 
-        # Set number of diffs per run [True/False]
-        if isinstance(CheckDistribution.one_check_per_run, bool):  # check if default value is still set
-            self.one_check_per_run = True
-        else:
-            # Check what the user set
-            self.one_check_per_run = CheckDistribution.one_check_per_run.lower() in ('false', 'f')
-            if self.one_check_per_run:
-                # User selected False
-                self.one_check_per_run = False
-            else:
-                # User selected something else
-                self.one_check_per_run = CheckDistribution.one_check_per_run.lower() in (('true', 't'))
-                if self.one_check_per_run:
-                    # User selected True
-                    pass
-                else:
-                    raise Exception(tools.red("CheckDistribution.one_check_per_run is set neither True/False, check the parameter"))
-
         # Create dictionary for all keys/parameters and insert a list for every value/option
         self.prms = {
             "file":             CheckDistribution.file,
@@ -2657,26 +2406,8 @@ class Analyze_check_distribution(Analyze):
             "exponent2":        CheckDistribution.exponent2,
         }
 
-        for key, prm in self.prms.items():
-            # Check if prm is not of type 'list'
-            if not isinstance(prm, list):
-                # create list with prm as entry
-                self.prms[key] = [prm]
-
-        # Get the number of values/options for each key/parameter
-        numbers = {key: len(prm) for key, prm in self.prms.items()}
-
-        # Get maximum number of values (from all possible keys)
-        self.nChecks = numbers[max(numbers, key=numbers.get)]  # ty:ignore[no-matching-overload]
-
-        # Check all numbers and if a key has only 1 number, increase the number to maximum and use the same value for all
-        for key, number in numbers.items():
-            if number == 1:
-                self.prms[key] = [self.prms[key][0] for i in range(self.nChecks)]
-                numbers[key] = self.nChecks
-
-        if any((number != self.nChecks) for number in numbers.values()):
-            raise Exception(tools.red("Number of multiple data sets for multiple check_distribution is inconsistent. Please ensure all options have the same length or length=1."))
+        # expand options to allows multiple analyzes with only one analyze.ini
+        self.one_check_per_run, self.nChecks = self._expand_prms(CheckDistribution.one_check_per_run, 'CheckDistribution_one_check_per_run')
 
         # Parse/convert per-check parameters and build the analytical distribution for each check
         self.dists = []
@@ -2839,9 +2570,7 @@ class Analyze_check_distribution(Analyze):
             print(s)
             # 1.  iterate over all runs
             for run in runs:
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s, do_print=False)
             return  # skip the following analysis tests
 
         # 1.  iterate over all runs
@@ -2862,30 +2591,21 @@ class Analyze_check_distribution(Analyze):
                 path = os.path.join(run.target_directory, file_loc)
                 if not os.path.exists(path):
                     s = tools.red(f"Analyze_check_distribution: file does not exist, file=[{path}]")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
 
                 with h5py.File(path, 'r') as f:
                     # 1.1.2   Check if dataset exists
                     if data_set_loc not in f:
                         s = tools.red(f"Analyze_check_distribution: [{data_set_loc}] not found in file=[{path}]")
-                        print(s)
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                         continue
 
                     data = f[data_set_loc][...]
 
                 if data.ndim != 2 or min(data.shape) == 0:
                     s = tools.red(f"Analyze_check_distribution: [{data_set_loc}] must be a non-empty 2-dimensional array, got shape={data.shape}")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
 
                 # 1.2.1   Transpose the array if array is stored as (nCols, nParts)
@@ -2895,10 +2615,7 @@ class Analyze_check_distribution(Analyze):
                 # 1.2   Read the velocity columns from the data set
                 if max(velocity_columns_loc) >= data.shape[1]:
                     s = tools.red(f"Analyze_check_distribution: velocity_columns={velocity_columns_loc} out of bounds for [{data_set_loc}] with shape={data.shape}")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
                 velocities = data[:, velocity_columns_loc].astype(np.float64)
 
@@ -2908,10 +2625,7 @@ class Analyze_check_distribution(Analyze):
 
                 if theta.size == 0:
                     s = tools.red(f"Analyze_check_distribution: no particles with 0 <= theta <= pi/2 (v.n >= 0) found in [{data_set_loc}]")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     continue
 
                 # 1.4   Run the Kolmogorov-Smirnov test against the analytical CDF and compare the p-value with the tolerance
@@ -2926,10 +2640,7 @@ class Analyze_check_distribution(Analyze):
                         f"Analyze_check_distribution: Kolmogorov-Smirnov test failed for distribution=[{dist.label}]: "
                         f"p-value=[{res.pvalue:.4e}] < tolerance=[{tolerance_loc:.4e}] (D=[{res.statistic:.5e}], N=[{theta.size}])"
                     )
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
 
                 # 1.5   Create diagnostic plots comparing the sampled distribution against the analytical one
                 if pyplot_module_loaded:
@@ -2948,24 +2659,6 @@ class Analyze_check_distribution(Analyze):
 
 class Analyze_compare_data_file(Analyze):
     def __init__(self, CompareDataFile):
-        # Set number of diffs per run [True/False]
-        if isinstance(CompareDataFile.one_diff_per_run, bool):  # check if default value is still set
-            self.one_diff_per_run = True
-        else:
-            # Check what the user set
-            self.one_diff_per_run = CompareDataFile.one_diff_per_run in ('False', 'false', 'f', 'F')
-            if self.one_diff_per_run:
-                # User selected False
-                self.one_diff_per_run = False
-            else:
-                # User selected something else
-                self.one_diff_per_run = CompareDataFile.one_diff_per_run in (('True', 'true', 't', 'T'))
-                if self.one_diff_per_run:
-                    # User selected True
-                    pass
-                else:
-                    raise Exception(tools.red("CompareDataFile.one_diff_per_run is set neither True/False, check the parameter"))
-
         # Create dictionary for all keys/parameters and insert a list for every value/options
         self.prms = {
             "file": CompareDataFile.name,
@@ -2977,36 +2670,11 @@ class Analyze_compare_data_file(Analyze):
             "max_differences": CompareDataFile.max_differences,
         }
 
-        for key, prm in self.prms.items():
-            # Check if prm is not of type 'list'
-            if not isinstance(prm, list):
-                # create list with prm as entry
-                self.prms[key] = [prm]
-
-        # Get the number of values/options for each key/parameter
-        numbers = {key: len(prm) for key, prm in self.prms.items()}
-
-        # Get maximum number of values (from all possible keys)
-        self.nCompares = numbers[max(numbers, key=numbers.get)]  # ty:ignore[no-matching-overload]
-
-        # Check all numbers and if a key has only 1 number, increase the number to maximum and use the same value for all
-        for key, number in numbers.items():
-            if number == 1:
-                self.prms[key] = [self.prms[key][0] for i in range(self.nCompares)]
-                numbers[key] = self.nCompares
-
-        if any((number != self.nCompares) for number in numbers.values()):
-            raise Exception(tools.red("Number of multiple data sets for multiple compare_data_file is inconsistent. Please ensure all options have the same length or length=1."))
+        self.one_diff_per_run, self.nCompares = self._expand_prms(CompareDataFile.one_diff_per_run, 'CompareDataFile_one_diff_per_run')
 
         # Check tolerance type (absolute or relative) and set the correct h5diff command line argument
         for compare in range(self.nCompares):
-            tolerance_type_loc = self.prms["tolerance_type"][compare]
-            if tolerance_type_loc in ('absolute', 'delta', '--delta'):
-                self.prms["tolerance_type"][compare] = "absolute"
-            elif tolerance_type_loc in ('relative', "--relative"):
-                self.prms["tolerance_type"][compare] = "relative"
-            else:
-                raise Exception(tools.red(f"initialization of compare_data_file failed. compare_data_file_tolerance_type '{tolerance_type_loc}' not accepted."))
+            self.prms["tolerance_type"][compare] = tools.normalize_tolerance_type(self.prms["tolerance_type"][compare], "compare_data_file_tolerance_type")
 
             line_loc = self.prms["line"][compare]
             if line_loc == 'last':
@@ -3037,9 +2705,7 @@ class Analyze_compare_data_file(Analyze):
             print(s)
             # 1.  iterate over all runs
             for run in runs:
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s, do_print=False)
             return  # skip the following analysis tests
 
         # 1.  iterate over all runs
@@ -3079,10 +2745,7 @@ class Analyze_compare_data_file(Analyze):
 
                 if not os.path.exists(path) or not os.path.exists(path_ref_target):
                     s = tools.red(f"Analyze_compare_data_file: cannot find both file=[{path}] and reference file=[{reference_file_loc}]")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     # do not skip the following analysis tests to see what other files might be missing
                     continue
 
@@ -3128,10 +2791,7 @@ class Analyze_compare_data_file(Analyze):
                 # 1.3.3   check length of vectors
                 if line_len != line_ref_len:
                     s = tools.red(f"Analyze_compare_data_file: length of lines in file [{path}] and reference file [{reference_file_loc}] are not of the same length")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     return  # skip the following analysis tests
 
                 # 1.3.4   calculate difference and determine compare with tolerance
@@ -3149,10 +2809,7 @@ class Analyze_compare_data_file(Analyze):
                         s = s + "Mismatch in columns: " + ", ".join(['Nbr. ' + str(i + 1).strip() for i in range(len(success)) if not success[i]])
                     if NbrOfDifferences > max_differences_loc:
                         s = tools.red(s)
-                        print(s)
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                     else:
                         s = s.replace("Comparison failed for", "Comparison ignored for")
                         s2 = f", but {max_differences_loc} difference(s) are allowed (given by compare_data_file_max_differences). This analysis is therefore marked as passed."
@@ -3163,10 +2820,7 @@ class Analyze_compare_data_file(Analyze):
                     NbrOfMatches = success.count(True)
                     if NbrOfMatches == 0:
                         s = tools.red(f"Analyze_compare_data_file: Found zero matching values. Wrong data file under [{path}] or format that could possibly not be read correctly")
-                        print(s)
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                     else:
                         s = tools.blue(tools.indent(f"Compared {path} with {reference_file_loc} and got {NbrOfMatches} matching columns", 2))
                         print(s)
@@ -3210,10 +2864,7 @@ class Analyze_integrate_line(Analyze):
             path = os.path.join(run.target_directory, self.file)
             if not os.path.exists(path):
                 s = tools.red(f"Analyze_integrate_line: cannot find file=[{self.file}] ")
-                print(s)
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
                 return
 
             data = np.array([])
@@ -3235,21 +2886,15 @@ class Analyze_integrate_line(Analyze):
                     max_lines += 1
 
             if failed:
-                s = f"Analyze_integrate_line: reading of the data file [{path}] has failed.\nNo float type data could be read. Check the file content."
-                print(tools.red(s))
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                s = tools.red(f"Analyze_integrate_line: reading of the data file [{path}] has failed.\nNo float type data could be read. Check the file content.")
+                Analyze.fail_run(run, s)
                 return
 
             # 1.3.2 check column numbers
             line_len = len(line) - 1
             if line_len < self.dim1 or line_len < self.dim2:
-                s = f"Failed: cannot perform analyze Analyze_integrate_line, because the supplied columns ({self.dim1}:{self.dim2}) exceed the columns ({line_len}) in the data file (the first column starts at 0)"
-                print(tools.red(s))
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                s = tools.red(f"Failed: cannot perform analyze Analyze_integrate_line, because the supplied columns ({self.dim1}:{self.dim2}) exceed the columns ({line_len}) in the data file (the first column starts at 0)")
+                Analyze.fail_run(run, s)
                 return
 
             # 1.3.3   get header information for integrated columns
@@ -3269,11 +2914,8 @@ class Analyze_integrate_line(Analyze):
 
             # 1.3.5   Check the number of data points: Integration can only be performed if at least two points exist
             if max_lines - header < 2:
-                s = "Failed: cannot perform analyze Analyze_integrate_line, because there are not enough lines of data to perform the integral calculation. Number of lines = %s" % (max_lines - header)
-                print(tools.red(s))
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                s = tools.red("Failed: cannot perform analyze Analyze_integrate_line, because there are not enough lines of data to perform the integral calculation. Number of lines = %s" % (max_lines - header))
+                Analyze.fail_run(run, s)
                 return
 
             # 1.4 integrate the values numerically
@@ -3294,10 +2936,7 @@ class Analyze_integrate_line(Analyze):
             success = tools.diff_value(Q, self.integral_value, self.tolerance_value, self.tolerance_type)
             if not success:
                 s = tools.red("Mismatch in integrated line: " + s)
-                print(s)
-                run.analyze_successful = False
-                run.analyze_results.append(s)
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
             else:
                 print(tools.blue(s))
 
@@ -3310,45 +2949,6 @@ class Analyze_integrate_line(Analyze):
 
 class Analyze_compare_column(Analyze):
     def __init__(self, CompareColumn, example):
-        # Set number of diffs per restart file [True/False]
-        if isinstance(CompareColumn.one_diff_per_restart_file, bool):  # check if default value is still set
-            self.one_diff_per_restart_file = False
-        else:
-            # Check what the user set
-            self.one_diff_per_restart_file = CompareColumn.one_diff_per_restart_file in ('False', 'false', 'f', 'F')
-            if self.one_diff_per_restart_file:
-                # User selected False
-                self.one_diff_per_restart_file = False
-            else:
-                # User selected something else
-                self.one_diff_per_restart_file = CompareColumn.one_diff_per_restart_file in (('True', 'true', 't', 'T'))
-                if self.one_diff_per_restart_file:
-                    # User selected True
-                    pass
-                else:
-                    raise Exception(tools.red("CompareColumn.one_diff_per_restart_file is set neither True/False, check the parameter"))
-
-        if self.one_diff_per_restart_file:
-            self.one_diff_per_run = False
-        else:
-            # Set number of diffs per run [True/False]
-            if isinstance(CompareColumn.one_diff_per_run, bool):  # check if default value is still set
-                self.one_diff_per_run = True
-            else:
-                # Check what the user set
-                self.one_diff_per_run = CompareColumn.one_diff_per_run in ('False', 'false', 'f', 'F')
-                if self.one_diff_per_run:
-                    # User selected False
-                    self.one_diff_per_run = False
-                else:
-                    # User selected something else
-                    self.one_diff_per_run = CompareColumn.one_diff_per_run in (('True', 'true', 't', 'T'))
-                    if self.one_diff_per_run:
-                        # User selected True
-                        pass
-                    else:
-                        raise Exception(tools.red("CompareColumn.one_diff_per_run is set neither True/False, check the parameter"))
-
         # Create dictionary for all keys/parameters and insert a list for every value/options
         self.prms = {
             "file": CompareColumn.file,
@@ -3366,30 +2966,17 @@ class Analyze_compare_column(Analyze):
             # Split string
             self.index = [int(x) for x in CompareColumn.index.split(",")]
 
-        for key, prm in self.prms.items():
-            # Check if prm is not of type 'list'
-            if not isinstance(prm, list):
-                # create list with prm as entry
-                self.prms[key] = [prm]
+        self.one_diff_per_restart_file = self._parse_bool(CompareColumn.one_diff_per_restart_file, "CompareColumn_one_diff_per_restart_file")
 
-        # Get the number of values/options for each key/parameter
-        numbers = {key: len(prm) for key, prm in self.prms.items()}
-
-        # Get maximum number of values (from all possible keys)
-        self.nCompares = numbers[max(numbers, key=numbers.get)]  # ty:ignore[no-matching-overload]
+        if self.one_diff_per_restart_file:
+            # force one_diff_per_run=False; pass False (already a bool) to skip flag string parsing
+            _, self.nCompares = self._expand_prms(False, "CompareColumn_one_diff_per_run")
+            self.one_diff_per_run = False
+        else:
+            self.one_diff_per_run, self.nCompares = self._expand_prms(CompareColumn.one_diff_per_run, 'CompareColumn_one_diff_per_run')
 
         # Get maximum number of runs from the command line
         self.nCommands = len(example.command_lines)
-
-        # Check all numbers and if a key has only 1 number, increase the number to maximum and use the same value for all
-        for key, number in numbers.items():
-            if number == 1:
-                self.prms[key] = [self.prms[key][0] for i in range(self.nCompares)]
-                numbers[key] = self.nCompares
-
-        # Check if all parameters have the same length (values with only one parameter have been filled up above)
-        if any((number != self.nCompares) for number in numbers.values()):
-            raise Exception(tools.red("Number of multiple data sets for multiple compare_column is inconsistent. Please ensure all options have the same length or length=1."))
 
         # Check tolerance type (absolute or relative) and set the correct h5diff command line argument
         for compare in range(self.nCompares):
@@ -3428,9 +3015,7 @@ class Analyze_compare_column(Analyze):
             print(s)
             # 1.  iterate over all runs
             for run in runs:
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s, do_print=False)
             return  # skip the following analysis tests
         if self.one_diff_per_run and (self.nCompares != len(runs)) and self.nCompares > 1:
             s = tools.red(
@@ -3440,9 +3025,7 @@ class Analyze_compare_column(Analyze):
             print(s)
             # 1.  iterate over all runs
             for run in runs:
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s, do_print=False)
             return  # skip the following analysis tests
 
         count = 0
@@ -3489,19 +3072,13 @@ class Analyze_compare_column(Analyze):
 
                 if not os.path.exists(path):
                     s = tools.red(f"Analyze_compare_column: cannot find file=[{file_loc}] ")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     # do not skip the following analysis tests to see what other files might be missing
                     continue
 
                 if not os.path.exists(path_ref_target):
                     s = tools.red(f"Analyze_compare_column: cannot find reference file=[{reference_file_loc}] ")
-                    print(s)
-                    run.analyze_results.append(s)
-                    run.analyze_successful = False
-                    Analyze.total_errors += 1
+                    Analyze.fail_run(run, s)
                     # do not skip the following analysis tests to see what other files might be missing
                     continue
 
@@ -3519,14 +3096,11 @@ class Analyze_compare_column(Analyze):
                         csvfile.seek(0)
                         # Sanity check: number of columns should not be smaller than the selected column
                         if column_count - 1 < index_loc:
-                            s = (
+                            s = tools.red(
                                 f"Failed: Cannot perform analyze Analyze_compare_column, because the supplied column ({index_loc}) in {path} exceeds the number of "
                                 f"columns ({0}) in the data file (the first column must start at 0)"
                             )
-                            print(tools.red(s))
-                            run.analyze_results.append(s)
-                            run.analyze_successful = False
-                            Analyze.total_errors += 1
+                            Analyze.fail_run(run, s)
                             # do not skip the following analysis tests to check other columns
                             continue
                         for row in line_str:
@@ -3545,11 +3119,8 @@ class Analyze_compare_column(Analyze):
 
                     # Check if any data has been read-in
                     if failed:
-                        s = f"Analyze_compare_column: reading of the data file [{path}] has failed.\nNo float type data could be read. Check the file content."
-                        print(tools.red(s))
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        s = tools.red(f"Analyze_compare_column: reading of the data file [{path}] has failed.\nNo float type data could be read. Check the file content.")
+                        Analyze.fail_run(run, s)
                         # do not skip the following analysis tests
                         continue
 
@@ -3569,14 +3140,11 @@ class Analyze_compare_column(Analyze):
                         elif column_count_ref - 1 >= index_loc:
                             refDim = index_loc
                         elif column_count_ref - 1 < index_loc:
-                            s = (
+                            s = tools.red(
                                 f"Failed: Cannot perform analyze Analyze_compare_column, because the supplied column ({index_loc}) in {path_ref_target} exceeds the number of "
                                 f"columns ({0}) in the reference file (the first column must start at 0)"
                             )
-                            print(tools.red(s))
-                            run.analyze_results.append(s)
-                            run.analyze_successful = False
-                            Analyze.total_errors += 1
+                            Analyze.fail_run(run, s)
                             # do not skip the following analysis tests to check other columns
                             continue
                         for row in line_str:
@@ -3593,11 +3161,8 @@ class Analyze_compare_column(Analyze):
                             max_lines_ref += 1
 
                     if failed:
-                        s = f"Analyze_compare_column: reading of the data reference file [{path_ref_target}] has failed.\nNo float type data could be read. Check the file content."
-                        print(tools.red(s))
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        s = tools.red(f"Analyze_compare_column: reading of the data reference file [{path_ref_target}] has failed.\nNo float type data could be read. Check the file content.")
+                        Analyze.fail_run(run, s)
                         # do not skip the following analysis tests
                         continue
 
@@ -3610,28 +3175,22 @@ class Analyze_compare_column(Analyze):
 
                     # Check dimensions of the arrays
                     if data.shape != data_ref.shape:
-                        s = (
+                        s = tools.red(
                             f"Failed: cannot perform analyze Analyze_compare_column, because the shape of the data in file=[{path}] is {data.shape} and that of the "
                             f"reference=[{reference_file_loc}] is {data_ref.shape}. They cannot be different!"
                         )
-                        print(tools.red(s))
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                         # do not skip the following analysis tests
                         continue
 
                     # Check the number of data points: Comparison can only be performed if at least one point exists
                     if max_lines - header < 1 or max_lines_ref - header_ref < 1 or max_lines - header != max_lines_ref - header_ref:
-                        s = (
+                        s = tools.red(
                             "Failed: cannot perform analyze Analyze_compare_column, because there are not enough lines of data or different numbers of "
                             f"data points to perform the comparison. Number of lines = {max_lines - header} (file) and {max_lines_ref - header_ref} (reference file), which must be equal and "
                             "at least one."
                         )
-                        print(tools.red(s))
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                         # do not skip the following analysis tests
                         continue
 
@@ -3642,10 +3201,7 @@ class Analyze_compare_column(Analyze):
                     if NbrOfDifferences > 0:
                         s = tools.red(f"Analyze_compare_column() failed: Found {NbrOfDifferences} differences.\n")
                         s = s + tools.red(f"Mismatch in column: {header_line}")
-                        print(s)
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s)
                 # print new line
                 print()
 
@@ -3705,10 +3261,7 @@ class Analyze_compare_across_commands(Analyze):
             path = os.path.join(run.target_directory, self.file)
             if not os.path.exists(path):
                 s = tools.red(f"Analyze_compare_across_commands: cannot find compare file=[{self.file}] ")
-                print(s)
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
                 return
 
             # 1.2   read data file
@@ -3730,37 +3283,28 @@ class Analyze_compare_across_commands(Analyze):
                         break
 
             if failed:  # only header lines (or non-convertable data) found
-                s = f"Analyze_compare_across_commands: reading of the data file [{path}] has failed.\nNo float type data could be read. Check the file content."
-                print(tools.red(s))
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                s = tools.red(f"Analyze_compare_across_commands: reading of the data file [{path}] has failed.\nNo float type data could be read. Check the file content.")
+                Analyze.fail_run(run, s)
                 return
 
             # 1.3   check number of lines in data file
             selected_line = i
             if selected_line < self.line_number:
-                s = (
+                s = tools.red(
                     f"Failed: cannot perform analyze Analyze_compare_across_commands, because the supplied line number [{self.line_number}] in [{path}] exceeds the number of "
                     f"lines [{selected_line}] in the data file (the first line has number 1)"
                 )
-                print(tools.red(s))
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
                 return
 
             # 1.4  check number of columns in data file
             line_len = len(line) - 1
             if line_len < self.column_index:
-                s = (
+                s = tools.red(
                     f"Failed: cannot perform analyze Analyze_compare_across_commands, because the supplied column [{self.column_index}] in [{path}] exceeds the number of columns "
                     f"[{line_len}] in the data file (the first column must start at 0)"
                 )
-                print(tools.red(s))
-                run.analyze_results.append(s)
-                run.analyze_successful = False
-                Analyze.total_errors += 1
+                Analyze.fail_run(run, s)
                 return
 
             # 1.5   get header information of considered column
@@ -3775,14 +3319,11 @@ class Analyze_compare_across_commands(Analyze):
         # 2. compare results of runs among eachother
         # 2.1   check index of reference command (1-based indexing, in accordance with directory name pattern 'cmd_0001, cmd_0002, ...'), index 0 means average of all commands
         if (self.reference > len(runs)) or (self.reference < 0):
-            s = (
+            s = tools.red(
                 f"Failed: cannot perform analyze Analyze_compare_across_commands, because index of reference command [{self.reference}] exceeds number of executed commands "
                 f"[{len(runs)}] (indexing starts at 1, use 0 for average of all commands)"
             )
-            print(tools.red(s))
-            run.analyze_results.append(s)
-            run.analyze_successful = False
-            Analyze.total_errors += 1
+            Analyze.fail_run(run, s)
             return
 
         # 2.2   compute reference value based extracted results and replicate to form reference array
@@ -3798,10 +3339,7 @@ class Analyze_compare_across_commands(Analyze):
         if NbrOfDifferences > 0:
             s = tools.red(f"Analyze_compare_across_commands() failed: Found {NbrOfDifferences} difference(s).")
             s = s + tools.red(f"Mismatch in line {selected_line} of column {header_line[self.column_index] if header > 0 else self.column_index}")
-            print(s)
-            run.analyze_results.append(s)
-            run.analyze_successful = False
-            Analyze.total_errors += 1
+            Analyze.fail_run(run, s)
 
     def __str__(self):
         return (
