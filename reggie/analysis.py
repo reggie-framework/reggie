@@ -483,6 +483,40 @@ class Analyze:  # main class from which all analyze functions are derived
     total_errors = 0  # errors gathered during run
     total_infos = 0  # information/warnings gathered during run
 
+    @staticmethod
+    def _parse_bool(value, name):
+        """Parse a user-supplied True/False parameter"""
+        if isinstance(value, bool):
+            return value
+        v = str(value).lower()
+        if v in ('true', 't'):
+            return True
+        if v in ('false', 'f'):
+            return False
+        raise Exception(tools.red(f'{name} is set neither True/False, check the parameter'))
+
+    def _expand_prms(self, flag_value, flag_name):
+        """Parse a one_per_run flag and normalize self.prms into equal-length lists.
+
+        Returns (one_per_run: bool, n: int)."""
+        # parse flag string to bool
+        one_per_run = self._parse_bool(flag_value, flag_name)
+        # build dictionary
+        for key, prm in self.prms.items():
+            # Check if prm is not of type 'list'
+            if not isinstance(prm, list):
+                # create list with prm as entry
+                self.prms[key] = [prm]
+        # Get the maximum number of values/options for key/parameter
+        n = max(len(prm) for prm in self.prms.values())
+        # broadcast single-value entries to match the longest list
+        for key, prm in self.prms.items():
+            if len(prm) == 1:
+                self.prms[key] = prm * n
+        if any(len(prm) != n for prm in self.prms.values()):
+            raise Exception(tools.red(f"Number of multiple data sets for multiple {flag_name.split('_')[0]} is inconsistent. Please ensure all options have the same length or length=1."))
+        return one_per_run, n
+
 
 # ==================================================================================================
 
@@ -1219,8 +1253,6 @@ class Analyze_Convtest_p(Analyze):
 
 class Analyze_h5diff(Analyze, ExternalCommand):
     def __init__(self, h5diff):
-        # Set number of diffs per run [True/False]
-        self.one_diff_per_run = h5diff.one_diff_per_run in ('True', 'true', 't', 'T')
         self.allow_reorder = h5diff.allow_reorder in ('True', 'true', 't', 'T')
 
         # Create dictionary for all keys/parameters and insert a list for every value/options
@@ -1242,28 +1274,10 @@ class Analyze_h5diff(Analyze, ExternalCommand):
             "var_attribute": h5diff.var_attribute,
             "var_name": h5diff.var_name,
         }
-        for key, prm in self.prms.items():
-            # Check if prm is not of type 'list'
-            if not isinstance(prm, list):
-                # create list with prm as entry
-                self.prms[key] = [prm]
-
-        # Get the number of values/options for each key/parameter
-        numbers = {key: len(prm) for key, prm in self.prms.items()}
-
         ExternalCommand.__init__(self)
 
-        # Get maximum number of values (from all possible keys)
-        self.nCompares = numbers[max(numbers, key=numbers.get)]  # ty:ignore[no-matching-overload]
-
-        # Check all numbers and if a key has only 1 number, increase the number to maximum and use the same value for all
-        for key, number in numbers.items():
-            if number == 1:
-                self.prms[key] = [self.prms[key][0] for i in range(self.nCompares)]
-                numbers[key] = self.nCompares
-
-        if any((number != self.nCompares) for number in numbers.values()):
-            raise Exception(tools.red("Number of multiple data sets for multiple h5diffs is inconsistent. Please ensure all options have the same length or length=1."))
+        # expand options to allows multiple analyzes with only one analyze.ini
+        self.one_diff_per_run, self.nCompares = self._expand_prms(h5diff.one_diff_per_run, 'h5diff_one_diff_per_run')
 
         # Check tolerance type (absolute or relative) and set the correct h5diff command line argument
         for compare in range(self.nCompares):
@@ -1898,9 +1912,6 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
     # Improvement: https://discourse.vtk.org/t/introducing-a-new-data-comparison-utility-in-vtk/12549/9
     # Comparison of two vtk arrays directly in python so that converting in numpy arrays is not necessary, currently only in C++ and not yet as python utility function
     def __init__(self, vtudiff):
-        # Set number of diffs per run [True/False]
-        self.one_diff_per_run = vtudiff.one_diff_per_run in ('True', 'true', 't', 'T')
-
         # Create dictionary for all keys/parameters and insert a list for every value/options
         self.prms = {
             "reference_file": vtudiff.reference_file,
@@ -1917,28 +1928,10 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
             "flip": vtudiff.flip,
             "max_differences": vtudiff.max_differences,
         }
-        for key, prm in self.prms.items():
-            # Check if prm is not of type 'list'
-            if not isinstance(prm, list):
-                # create list with prm as entry
-                self.prms[key] = [prm]
-
-        # Get the number of values/options for each key/parameter
-        numbers = {key: len(prm) for key, prm in self.prms.items()}
-
         ExternalCommand.__init__(self)
 
-        # Get maximum number of values (from all possible keys)
-        self.nCompares = numbers[max(numbers, key=numbers.get)]  # ty:ignore[no-matching-overload]
-
-        # Check all numbers and if a key has only 1 number, increase the number to maximum and use the same value for all
-        for key, number in numbers.items():
-            if number == 1:
-                self.prms[key] = [self.prms[key][0] for i in range(self.nCompares)]
-                numbers[key] = self.nCompares
-
-        if any((number != self.nCompares) for number in numbers.values()):
-            raise Exception(tools.red("Number of multiple data sets for multiple vtudiffs is inconsistent. Please ensure all options have the same length or length=1."))
+        # expand options to allows multiple analyzes with only one analyze.ini
+        self.one_diff_per_run, self.nCompares = self._expand_prms(vtudiff.one_diff_per_run, 'vtudiff_one_diff_per_run')
 
         # Check dataset sorting
         for compare in range(self.nCompares):
@@ -2624,24 +2617,6 @@ class Analyze_check_distribution(Analyze):
 
     def __init__(self, CheckDistribution):
 
-        # Set number of diffs per run [True/False]
-        if isinstance(CheckDistribution.one_check_per_run, bool):  # check if default value is still set
-            self.one_check_per_run = True
-        else:
-            # Check what the user set
-            self.one_check_per_run = CheckDistribution.one_check_per_run.lower() in ('false', 'f')
-            if self.one_check_per_run:
-                # User selected False
-                self.one_check_per_run = False
-            else:
-                # User selected something else
-                self.one_check_per_run = CheckDistribution.one_check_per_run.lower() in (('true', 't'))
-                if self.one_check_per_run:
-                    # User selected True
-                    pass
-                else:
-                    raise Exception(tools.red("CheckDistribution.one_check_per_run is set neither True/False, check the parameter"))
-
         # Create dictionary for all keys/parameters and insert a list for every value/option
         self.prms = {
             "file":             CheckDistribution.file,
@@ -2657,26 +2632,8 @@ class Analyze_check_distribution(Analyze):
             "exponent2":        CheckDistribution.exponent2,
         }
 
-        for key, prm in self.prms.items():
-            # Check if prm is not of type 'list'
-            if not isinstance(prm, list):
-                # create list with prm as entry
-                self.prms[key] = [prm]
-
-        # Get the number of values/options for each key/parameter
-        numbers = {key: len(prm) for key, prm in self.prms.items()}
-
-        # Get maximum number of values (from all possible keys)
-        self.nChecks = numbers[max(numbers, key=numbers.get)]  # ty:ignore[no-matching-overload]
-
-        # Check all numbers and if a key has only 1 number, increase the number to maximum and use the same value for all
-        for key, number in numbers.items():
-            if number == 1:
-                self.prms[key] = [self.prms[key][0] for i in range(self.nChecks)]
-                numbers[key] = self.nChecks
-
-        if any((number != self.nChecks) for number in numbers.values()):
-            raise Exception(tools.red("Number of multiple data sets for multiple check_distribution is inconsistent. Please ensure all options have the same length or length=1."))
+        # expand options to allows multiple analyzes with only one analyze.ini
+        self.one_check_per_run, self.nChecks = self._expand_prms(CheckDistribution.one_check_per_run, 'CheckDistribution_one_check_per_run')
 
         # Parse/convert per-check parameters and build the analytical distribution for each check
         self.dists = []
@@ -2948,24 +2905,6 @@ class Analyze_check_distribution(Analyze):
 
 class Analyze_compare_data_file(Analyze):
     def __init__(self, CompareDataFile):
-        # Set number of diffs per run [True/False]
-        if isinstance(CompareDataFile.one_diff_per_run, bool):  # check if default value is still set
-            self.one_diff_per_run = True
-        else:
-            # Check what the user set
-            self.one_diff_per_run = CompareDataFile.one_diff_per_run in ('False', 'false', 'f', 'F')
-            if self.one_diff_per_run:
-                # User selected False
-                self.one_diff_per_run = False
-            else:
-                # User selected something else
-                self.one_diff_per_run = CompareDataFile.one_diff_per_run in (('True', 'true', 't', 'T'))
-                if self.one_diff_per_run:
-                    # User selected True
-                    pass
-                else:
-                    raise Exception(tools.red("CompareDataFile.one_diff_per_run is set neither True/False, check the parameter"))
-
         # Create dictionary for all keys/parameters and insert a list for every value/options
         self.prms = {
             "file": CompareDataFile.name,
@@ -2977,26 +2916,7 @@ class Analyze_compare_data_file(Analyze):
             "max_differences": CompareDataFile.max_differences,
         }
 
-        for key, prm in self.prms.items():
-            # Check if prm is not of type 'list'
-            if not isinstance(prm, list):
-                # create list with prm as entry
-                self.prms[key] = [prm]
-
-        # Get the number of values/options for each key/parameter
-        numbers = {key: len(prm) for key, prm in self.prms.items()}
-
-        # Get maximum number of values (from all possible keys)
-        self.nCompares = numbers[max(numbers, key=numbers.get)]  # ty:ignore[no-matching-overload]
-
-        # Check all numbers and if a key has only 1 number, increase the number to maximum and use the same value for all
-        for key, number in numbers.items():
-            if number == 1:
-                self.prms[key] = [self.prms[key][0] for i in range(self.nCompares)]
-                numbers[key] = self.nCompares
-
-        if any((number != self.nCompares) for number in numbers.values()):
-            raise Exception(tools.red("Number of multiple data sets for multiple compare_data_file is inconsistent. Please ensure all options have the same length or length=1."))
+        self.one_diff_per_run, self.nCompares = self._expand_prms(CompareDataFile.one_diff_per_run, 'CompareDataFile_one_diff_per_run')
 
         # Check tolerance type (absolute or relative) and set the correct h5diff command line argument
         for compare in range(self.nCompares):
@@ -3310,45 +3230,6 @@ class Analyze_integrate_line(Analyze):
 
 class Analyze_compare_column(Analyze):
     def __init__(self, CompareColumn, example):
-        # Set number of diffs per restart file [True/False]
-        if isinstance(CompareColumn.one_diff_per_restart_file, bool):  # check if default value is still set
-            self.one_diff_per_restart_file = False
-        else:
-            # Check what the user set
-            self.one_diff_per_restart_file = CompareColumn.one_diff_per_restart_file in ('False', 'false', 'f', 'F')
-            if self.one_diff_per_restart_file:
-                # User selected False
-                self.one_diff_per_restart_file = False
-            else:
-                # User selected something else
-                self.one_diff_per_restart_file = CompareColumn.one_diff_per_restart_file in (('True', 'true', 't', 'T'))
-                if self.one_diff_per_restart_file:
-                    # User selected True
-                    pass
-                else:
-                    raise Exception(tools.red("CompareColumn.one_diff_per_restart_file is set neither True/False, check the parameter"))
-
-        if self.one_diff_per_restart_file:
-            self.one_diff_per_run = False
-        else:
-            # Set number of diffs per run [True/False]
-            if isinstance(CompareColumn.one_diff_per_run, bool):  # check if default value is still set
-                self.one_diff_per_run = True
-            else:
-                # Check what the user set
-                self.one_diff_per_run = CompareColumn.one_diff_per_run in ('False', 'false', 'f', 'F')
-                if self.one_diff_per_run:
-                    # User selected False
-                    self.one_diff_per_run = False
-                else:
-                    # User selected something else
-                    self.one_diff_per_run = CompareColumn.one_diff_per_run in (('True', 'true', 't', 'T'))
-                    if self.one_diff_per_run:
-                        # User selected True
-                        pass
-                    else:
-                        raise Exception(tools.red("CompareColumn.one_diff_per_run is set neither True/False, check the parameter"))
-
         # Create dictionary for all keys/parameters and insert a list for every value/options
         self.prms = {
             "file": CompareColumn.file,
@@ -3366,30 +3247,17 @@ class Analyze_compare_column(Analyze):
             # Split string
             self.index = [int(x) for x in CompareColumn.index.split(",")]
 
-        for key, prm in self.prms.items():
-            # Check if prm is not of type 'list'
-            if not isinstance(prm, list):
-                # create list with prm as entry
-                self.prms[key] = [prm]
+        self.one_diff_per_restart_file = self._parse_bool(CompareColumn.one_diff_per_restart_file, "CompareColumn_one_diff_per_restart_file")
 
-        # Get the number of values/options for each key/parameter
-        numbers = {key: len(prm) for key, prm in self.prms.items()}
-
-        # Get maximum number of values (from all possible keys)
-        self.nCompares = numbers[max(numbers, key=numbers.get)]  # ty:ignore[no-matching-overload]
+        if self.one_diff_per_restart_file:
+            # force one_diff_per_run=False; pass False (already a bool) to skip flag string parsing
+            _, self.nCompares = self._expand_prms(False, "CompareColumn_one_diff_per_run")
+            self.one_diff_per_run = False
+        else:
+            self.one_diff_per_run, self.nCompares = self._expand_prms(CompareColumn.one_diff_per_run, 'CompareColumn_one_diff_per_run')
 
         # Get maximum number of runs from the command line
         self.nCommands = len(example.command_lines)
-
-        # Check all numbers and if a key has only 1 number, increase the number to maximum and use the same value for all
-        for key, number in numbers.items():
-            if number == 1:
-                self.prms[key] = [self.prms[key][0] for i in range(self.nCompares)]
-                numbers[key] = self.nCompares
-
-        # Check if all parameters have the same length (values with only one parameter have been filled up above)
-        if any((number != self.nCompares) for number in numbers.values()):
-            raise Exception(tools.red("Number of multiple data sets for multiple compare_column is inconsistent. Please ensure all options have the same length or length=1."))
 
         # Check tolerance type (absolute or relative) and set the correct h5diff command line argument
         for compare in range(self.nCompares):
