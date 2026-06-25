@@ -1273,8 +1273,9 @@ class PerformCheck:
                     sys.exit(1)
 
                 # 1.2    compile the build if args.run is false and the binary is non-existent
-                build.compile(args.buildprocs)
-                if not args.carryon:  # remove examples folder if not carryon, in order to re-run all examples
+                if not args.dry_run:
+                    build.compile(args.buildprocs)
+                if not args.carryon and not args.dry_run:  # remove examples folder if not carryon, in order to re-run all examples
                     tools.remove_folder(os.path.join(build.target_directory, "examples"))
 
                 # 1.3    check whether the build is using MPI (either disabled for the whole reggie execution or because compiled without MPI)
@@ -1540,7 +1541,10 @@ class PerformCheck:
 
             # 4.1 read the external options in 'externals.ini' within each example directory (e.g. eos, hopr, posti)
             #     distinguish between pre- and post processing
-            run.externals_pre, run.externals_post, run.externals_errors = getExternals(os.path.join(run.source_directory, 'externals.ini'), run, build)
+            if args.dry_run:
+                run.externals_pre, run.externals_post, run.externals_errors = [], [], []
+            else:
+                run.externals_pre, run.externals_post, run.externals_errors = getExternals(os.path.join(run.source_directory, 'externals.ini'), run, build)
 
             # (pre) externals: loop over all externals available in external.ini
             external_failed = False
@@ -1565,14 +1569,17 @@ class PerformCheck:
                     self.mesh_externals_done = True
 
             # 4.2    execute the binary file for one combination of parameters
-            run.execute(build, self.command_line, args, external_failed)
-            if not run.successful:
-                Run.total_errors += 1  # add error if run fails
-                # Check if immediate stop is activated on failure
-                if args.stop:
-                    s = tools.red('Stop on first error (-p, --stop) is activated! Execution of run failed')
-                    print(s)
-                    sys.exit(1)
+            if args.dry_run:
+                print(tools.indent(tools.yellow('dry-run: skipping execution'), 2))
+            else:
+                run.execute(build, self.command_line, args, external_failed)
+                if not run.successful:
+                    Run.total_errors += 1  # add error if run fails
+                    # Check if immediate stop is activated on failure
+                    if args.stop:
+                        s = tools.red('Stop on first error (-p, --stop) is activated! Execution of run failed')
+                        print(s)
+                        sys.exit(1)
 
             # (post) externals: loop over all externals available in external.ini
             if run.externals_post is None:
