@@ -1571,6 +1571,11 @@ class PerformCheck:
             # 4.2    execute the binary file for one combination of parameters
             if args.dry_run:
                 print(tools.indent(tools.yellow('dry-run: skipping execution'), 2))
+                stdout_path = os.path.join(run.target_directory, 'std.out')
+                if os.path.exists(stdout_path):
+                    with open(stdout_path) as f:
+                        run.stdout = f.readlines()
+                    run.stdout_filename = stdout_path
             else:
                 run.execute(build, self.command_line, args, external_failed)
                 if not run.successful:
