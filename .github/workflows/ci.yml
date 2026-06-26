@@ -25,6 +25,17 @@ on:
   pull_request:
   # Allows running this workflow manually from the Actions tab
   workflow_dispatch:
+    inputs:
+      # note that these default values are only set when creating a workflow by hand on github, therfore the default values are also hardcoded below
+      testcase_dir_build:
+        # testcase directory used for building the executable with reggie
+        default: 'CHE_maxwell'
+      testcase_dir:
+        # this testcase directory is used for the execution with the pre-compiled executable, note that it might contain more than one testcase, use $TESTCASE to specify a single on (for shorter runtime)
+        default: 'NIG_Reservoir_single_core'
+      testcase:
+        # this testcase includes multiple cores for the reggie execution
+        default: 'RELAX_N2'
 
 # Permissions
 permissions:
@@ -42,18 +53,18 @@ env:
 
 jobs:
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
-# Linter
+# Setup
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
   venv:
     name: Setup venv
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v5
       - uses: actions/cache@v5
         id: cache
         with:
           path: .venv
-          key: lint-venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml') }}
       - name: Create virtual environment
         if: steps.cache.outputs.cache-hit != 'true'
         shell: bash
@@ -63,16 +74,42 @@ jobs:
           python -m pip install ruff ty vulture
           python -m pip install --editable .
 
+  piclas:
+    name: Clone piclas repository from github
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get install -y libopenmpi-dev libhdf5-openmpi-dev hdf5-tools libopenblas-dev
+      - uses: actions/cache@v5
+        id: cache
+        with:
+          path: piclas
+          key: piclas-${{ github.sha }}
+      - name: Clone piclas from github
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          git clone https://github.com/piclas-framework/piclas.git
+          cd piclas
+          mkdir build
+          cd build
+          # create executable with tools script
+          export FFLAGS="-fPIC" CFLAGS="-fPIC" CXXFLAGS="-fPIC"
+          ../tools/cmake-builds-ini.sh ../regressioncheck/${{ inputs.testcase_dir || 'NIG_Reservoir_single_core' }}/builds.ini
+
+# ----------------------------------------------------------------------------------------------------------------------------------------------------
+# Linter
+# ----------------------------------------------------------------------------------------------------------------------------------------------------
   ruff:
     name: Lint / ruff
     runs-on: ubuntu-latest
     needs: [venv]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v5
       - uses: actions/cache@v5
         with:
           path: .venv
-          key: lint-venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml') }}
       - name: Run ruff
         shell: bash
         run: |
@@ -85,11 +122,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [venv]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v5
       - uses: actions/cache@v5
         with:
           path: .venv
-          key: lint-venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml') }}
       - name: Run ty
         shell: bash
         run: |
@@ -102,11 +139,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [venv]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v5
       - uses: actions/cache@v5
         with:
           path: .venv
-          key: lint-venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml') }}
       - name: Run vulture
         shell: bash
         run: |
@@ -134,7 +171,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v5
       - name: Run compatibility tests
         shell: bash
         run: |
@@ -148,10 +185,11 @@ jobs:
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # Regressionchecks
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
-  Analyze_checks:
+  Analyze_checks_single:
+    # these analyzes do not need any external tools
     name: Regressioncheck / ${{ matrix.check }}
     runs-on: ubuntu-latest
-    needs: [venv, compatibility]
+    needs: [venv]
     strategy:
       fail-fast: false
       matrix:
@@ -168,11 +206,11 @@ jobs:
           - CHE_Analyze_Convtest_p
           - CHE_Analyze_Convtest_t
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v5
       - uses: actions/cache@v5
         with:
           path: .venv
-          key: lint-venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml') }}
       - name: Perform ${{ matrix.check }}
         shell: bash
         run: |
@@ -180,20 +218,21 @@ jobs:
           reggie --dry-run regressioncheck/${{ matrix.check }}
 
   Analyze_checks_hdf5_tools:
+    # these analyzes need the hdf5 toolset
     name: Regressioncheck (hdf5 tools) / ${{ matrix.check }}
     runs-on: ubuntu-latest
-    needs: [venv, compatibility]
+    needs: [venv]
     strategy:
       fail-fast: false
       matrix:
         check:
           - CHE_Analyze_h5diff
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v5
       - uses: actions/cache@v5
         with:
           path: .venv
-          key: lint-venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml') }}
       - name: Install HDF5 tools
         run: sudo apt-get install -y hdf5-tools
       - name: Perform ${{ matrix.check }}
@@ -201,3 +240,32 @@ jobs:
         run: |
           source .venv/bin/activate
           reggie --dry-run regressioncheck/${{ matrix.check }}
+
+  Analyze_checks_piclas:
+    # these analyzes need the piclas repo and executable
+    name: Regressioncheck (with piclas builds) / ${{ matrix.check }}
+    runs-on: ubuntu-latest
+    needs: [venv, piclas]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - check: piclas/regressioncheck/${{ inputs.testcase_dir_build || 'CHE_maxwell' }}
+            extra_args: ""                                          # no extra arguments, since reggie builds the executable itself
+          - check: piclas/regressioncheck/${{ inputs.testcase_dir || 'NIG_Reservoir_single_core' }}/${{ inputs.testcase || 'RELAX_N2' }}
+            extra_args: "--e piclas/build/bin/piclas"          # use pre-built executable
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/cache@v5
+        with:
+          path: .venv
+          key: venv-${{ hashFiles('pyproject.toml') }}
+      - uses: actions/cache@v5
+        with:
+          path: piclas
+          key: piclas-${{ github.sha }}
+      - name: Perform ${{ matrix.check }} ${{ matrix.extra_args }}
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          reggie ${{ matrix.check }} ${{ matrix.extra_args }}
