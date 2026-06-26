@@ -45,21 +45,22 @@ jobs:
 # Linter
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
   venv:
-    name: Lint / Setup venv
+    name: Setup venv
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         id: cache
         with:
           path: .venv
           key: lint-venv-${{ hashFiles('pyproject.toml') }}
-      - if: steps.cache.outputs.cache-hit != 'true'
+      - name: Create virtual environment
+        if: steps.cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           python -m venv .venv
           source .venv/bin/activate
-          python -m pip install ruff ty vulture reggie-framework
+          python -m pip install ruff ty vulture
           python -m pip install --editable .
 
   ruff:
@@ -68,11 +69,12 @@ jobs:
     needs: [venv]
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: .venv
           key: lint-venv-${{ hashFiles('pyproject.toml') }}
-      - shell: bash
+      - name: Run ruff
+        shell: bash
         run: |
           source .venv/bin/activate
           ruff --version
@@ -84,11 +86,12 @@ jobs:
     needs: [venv]
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: .venv
           key: lint-venv-${{ hashFiles('pyproject.toml') }}
-      - shell: bash
+      - name: Run ty
+        shell: bash
         run: |
           source .venv/bin/activate
           ty --version
@@ -100,11 +103,12 @@ jobs:
     needs: [venv]
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: .venv
           key: lint-venv-${{ hashFiles('pyproject.toml') }}
-      - shell: bash
+      - name: Run vulture
+        shell: bash
         run: |
           source .venv/bin/activate
           vulture --version
@@ -126,8 +130,6 @@ jobs:
           - { python-version: "3.12" }
           - { python-version: "3.13" }
           - { python-version: "3.14" }
-    container:
-      image: ${{ matrix.image }}
     steps:
       - uses: actions/setup-python@v6
         with:
@@ -147,9 +149,9 @@ jobs:
 # Regressionchecks
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
   Analyze_checks:
-    name: Regression / ${{ matrix.check }}
+    name: Regressioncheck / ${{ matrix.check }}
     runs-on: ubuntu-latest
-    needs: [venv]
+    needs: [venv, compatibility]
     strategy:
       fail-fast: false
       matrix:
@@ -160,16 +162,39 @@ jobs:
           - CHE_Analyze_check_hdf5
           - CHE_Analyze_compare_column
           - CHE_Analyze_compare_data_file
-          - CHE_Analyze_h5diff
           - CHE_Analyze_integrate_line
           - CHE_Analyze_vtudiff
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: .venv
           key: lint-venv-${{ hashFiles('pyproject.toml') }}
-      - shell: bash
+      - name: Perform ${{ matrix.check }}
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          reggie --dry-run regressioncheck/${{ matrix.check }}
+
+  Analyze_checks_hdf5_tools:
+    name: Regressioncheck (hdf5 tools) / ${{ matrix.check }}
+    runs-on: ubuntu-latest
+    needs: [venv, compatibility]
+    strategy:
+      fail-fast: false
+      matrix:
+        check:
+          - CHE_Analyze_h5diff
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v5
+        with:
+          path: .venv
+          key: lint-venv-${{ hashFiles('pyproject.toml') }}
+      - name: Install HDF5 tools
+        run: sudo apt-get install -y hdf5-tools
+      - name: Perform ${{ matrix.check }}
+        shell: bash
         run: |
           source .venv/bin/activate
           reggie --dry-run regressioncheck/${{ matrix.check }}
