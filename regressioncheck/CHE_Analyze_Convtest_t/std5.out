@@ -1,0 +1,535 @@
+====================================================================================================================================
+                                        _______ _________ _______  _        _______  _______ 
+                                       (  ____ )\__   __/(  ____ \( \      (  ___  )(  ____ \
+                                       | (    )|   ) (   | (    \/| (      | (   ) || (    \/
+                                       | (____)|   | |   | |      | |      | (___) || (_____ 
+                                       |  _____)   | |   | |      | |      |  ___  |(_____  )
+                                       | (         | |   | |      | |      | (   ) |      ) |
+                                       | )      ___) (___| (____/\| (____/\| )   ( |/\____) |
+                                       |/       \_______/(_______/(_______/|/     \|\_______)
+                                                                                                                                    
+piclas version 4.2.0 with commit 5eb8e88bb62dbcfa4911b72a90324d7aa8131b3e and build type release
+====================================================================================================================================
+====================================================================================================================================
+ DEFINING PARAMETERS ...
+====================================================================================================================================
+====================================================================================================================================
+ DEFINING PARAMETERS DONE! --> 746 UNIQUE PARAMETERS DEFINED
+====================================================================================================================================
+ | Reading from file "parameter.ini":
+ | [0;34m                                                                 ColoredOutput[m |                                  T | [0;31mDEFAULT[m | 
+====================================================================================================================================
+ READING INI DONE! [          0.03 sec ] NOW 47 PARAMETERS ARE SET
+====================================================================================================================================
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT OUTPUT...
+ | [0;34m                                                                   ProjectName[m |                    single-particle | [0;32m*CUSTOM[m | 
+ | [0;34m                                                                       Logging[m |                                  F | [0;32m*CUSTOM[m | 
+ | [0;34m                                                               WriteErrorFiles[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                             doPrintStatusLine[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                            DoWriteStateToHDF5[m |                                  T | [0;31mDEFAULT[m | 
+ INIT OUTPUT DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT IOHDF5 ...
+ | [0;34m                                                                 gatheredWrite[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                               UseCollectiveIO[m |                                  F | [0;31mDEFAULT[m | 
+ INIT DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT GLOBALS ...
+ | Speed of light (in vacuum) c0 [m/s]. To change, set PICLAS_READIN_CONSTANTS=ON |              2.99792458000000E+008 |   FIXED | 
+ | Permittivity (of vacuum)  eps [F/m]. To change, set PICLAS_READIN_CONSTANTS=ON |              8.85418781760000E-012 |   FIXED | 
+ | Permeability (of vacuum)   mu [F/m]. To change, set PICLAS_READIN_CONSTANTS=ON |              1.25663706140000E-006 |   FIXED | 
+ INIT GLOBALS DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT LOAD BALANCE ...
+ | [0;34m                                                           Particles-MPIWeight[m |                               0.02 | [0;31mDEFAULT[m | 
+ |                                  No LoadBalance (nProcessors=1): DoLoadBalance |                                  F |    INFO | 
+ | [0;34m                                                             LoadBalanceSample[m |                                  1 | [0;31mDEFAULT[m | 
+ | [0;34m                                                           LoadBalanceMaxSteps[m |                                  1 | [0;31mDEFAULT[m | 
+ | [0;34m                                                         PartWeightLoadBalance[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                      WeightDistributionMethod[m |                                  1 | [0;31mDEFAULT[m | 
+ INIT LOAD BALANCE DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT MPI SHARED COMMUNICATION ...
+ | Starting shared communication with 1 procs on 1 node
+ INIT MPI SHARED COMMUNICATION DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT INTERPOLATION...
+ | [0;34m                                                                             N[m |                                  1 | [0;32m*CUSTOM[m | 
+ |                                     p-adaption minimum polynomial degree: Nmin |                                  1 |    INFO | 
+ | [0;34m                                                                          Nmax[m |                                  1 | [0;31mDEFAULT[m | 
+ | [0;34m                                                                      NAnalyze[m |                                  5 | [0;32m*CUSTOM[m | 
+ INIT INTERPOLATION DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT TIMEDISC...
+ | [0;34m                                                                      CFLScale[m |                            2.0E+06 | [0;32m*CUSTOM[m | 
+   CFL:   1.3567333E+06
+ | [0;34m                                                                ManualTimeStep[m |                               -1.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                                          TEnd[m |                             30.628 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                               IterDisplayStep[m |                               1000 | [0;32m*CUSTOM[m | 
+ Method of time integration: LSERK4-5 
+ INIT TIMEDISC DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+ | [0;34m                                                               TimeStampLength[m |                                 21 | [0;31mDEFAULT[m | 
+ | [0;34m                                                                       UseDSMC[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                      Particles-Symmetry-Order[m |                                  3 | [0;31mDEFAULT[m | 
+ | [0;34m                                              Particles-Symmetry2DAxisymmetric[m |                                  F | [0;31mDEFAULT[m | 
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT MAXWELL ...
+ | [0;34m                                                                         DoPML[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                        c_corr[m |                                1.0 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                                      fDamping[m |                              0.999 | [0;31mDEFAULT[m | 
+ | [0;34m                                                              ParabolicDamping[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                   CentralFlux[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                       Beam_t0[m |                                0.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                                  IniExactFunc[m |                                  0 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                                   BCStateFile[m |                      no file found | [0;31mDEFAULT[m | 
+ | [0;34m                                                                    AlphaShape[m |                                  2 | [0;31mDEFAULT[m | 
+ | [0;34m                                                                      r_cutoff[m |                                1.0 | [0;31mDEFAULT[m | 
+ INIT MAXWELL DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+ Mortar operators built successfully.
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT RESTART...
+ | [0;34m                                                        RestartNullifySolution[m |                                  F | [0;31mDEFAULT[m | 
+ | No restart wanted, doing a fresh computation!
+ | [0;34m                                                          DoInitialAutoRestart[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                      InitialAutoRestartSample[m |                                  1 | [0;31mDEFAULT[m | 
+ | [0;34m                                      InitialAutoRestart-PartWeightLoadBalance[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                             FlushInitialState[m |                                  F | [0;31mDEFAULT[m | 
+ INIT RESTART DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT PARTICLE GLOBALS...
+ INIT PARTICLE WEIGHTING...
+ | [0;34m                                                              Part-Weight-Type[m |                       constant (0) | [0;31mDEFAULT[m | 
+ | [0;34m                                           Part-VariableTimeStep-LinearScaling[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                            Part-VariableTimeStep-Distribution[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                TrackingMethod[m |                     refmapping (1) | [0;32m*CUSTOM[m | 
+ | [0;34m                                                           PIC-Deposition-Type[m |                 cell_volweight (6) | [0;31mDEFAULT[m | 
+ | [0;34m                                                                 UseRayTracing[m |                                  F | [0;31mDEFAULT[m | 
+ INIT PARTICLE GLOBALS DONE
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT MESH...
+ | [0;34m                                                                  CalcMeshInfo[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                      MeshFile[m |            single-particle_mesh.h5 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                                    useCurveds[m |                                  F | [0;32m*CUSTOM[m | 
+ |                                                                           NGeo |                                  1 |    INFO | 
+ | [0;34m                                                                     meshScale[m |                                1.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                           readFEMconnectivity[m |                                  F | [0;31mDEFAULT[m | 
+------------------------------------------------------------------------------------------------------------------------------------
+ READ MESH FROM DATA FILE "single-particle_mesh.h5" ... DONE [ 0.00 sec ] [ 0:00:00:00 ]
+....................................................................................................................................
+ DOMAIN DECOMPOSITION ... No ElemTime found in restart file ...  DONE! [ 0.00 sec ] [ 0:00:00:00 ]
+------------------------------------------------------------------------------------------------------------------------------------
+....................................................................................................................................
+ BOUNDARY CONDITIONS              |                Name      Type     State     Alpha
+ |                                |        BC_absorbing         4         0         0
+....................................................................................................................................
+ Communicating mesh on shared memory... DONE! [ 0.00 sec ] [ 0:00:00:00 ]
+------------------------------------------------------------------------------------------------------------------------------------
+ |                         nElems | 1
+ |                 nNodes, unique | 8
+ |                 nNodes, total  | 8
+ |                 nSides         | 6
+ |                 nSides,    BC  | 6
+ |                 nSides,   MPI  | 0
+ |                 nSides, Inner  | 0
+ |                 nSides,Mortar  | 0
+ |           nPeriodicSides,Total | 0
+ |           nPeriodicSides,Inner | 0
+ |           nPeriodicSides,  MPI | 0
+ |                  nAnalyzeSides | 6
+ |                     useCurveds | F
+ |                           Ngeo | 1
+....................................................................................................................................
+------------------------------------------------------------------------------------------------------------------------------------
+ | [0;34m                                                                    meshdeform[m |                                  F | [0;31mDEFAULT[m | 
+NOW CALLING setLocalSideIDs...
+ | [0;34m                                                            writePartitionInfo[m |                                  F | [0;31mDEFAULT[m | 
+NOW CALLING exchangeFlip...
+NOW CALLING fillMeshInfo...
+....................................................................................................................................
+ |         nSides with Flip=0     | 6
+ |         nSides with Flip=1     | 0
+ |         nSides with Flip=2     | 0
+ |         nSides with Flip=3     | 0
+ |         nSides with Flip=4     | 0
+....................................................................................................................................
+ |         nSides of MortarType=1 | 0
+ |         nSides of MortarType=2 | 0
+ |         nSides of MortarType=3 | 0
+....................................................................................................................................
+ | [0;34m                                                                 pAdaptionType[m |                           none (0) | [0;31mDEFAULT[m | 
+ | [0;34m                                                           crossProductMetrics[m |                                  F | [0;31mDEFAULT[m | 
+NOW CALLING calcMetrics...
+ | [0;34m                                                                  meshCheckRef[m |                                  T | [0;31mDEFAULT[m | 
+ Smallest scaled Jacobian in reference system:  1.0000000000E+000 (1 global elements). Abort threshold is set to: 1.00000E-002
+ Calculation of metrics took [ 0.00 sec ] [ 0:00:00:00 ]
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT ELEMENT GEOMETRY INFORMATION ...
+ |              Total MESH Volume |                    0.80000000E+04
+ INIT ELEMENT GEOMETRY INFORMATION DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+ | [0;34m                                                                     Part-vMPF[m |                                  F | [0;32m*CUSTOM[m | 
+ INIT MESH DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+ | [0;34m                                                                     GroupSize[m |                                  0 | [0;31mDEFAULT[m | 
+ | Starting gathered I/O communication with 1 procs in 1 group
+ | [0;34m                                                                      RP_inUse[m |                                  F | [0;31mDEFAULT[m | 
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT PML...
+ PML region deactivated. 
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT Dielectric...
+ | [0;34m                                                                  DoDielectric[m |                                  F | [0;31mDEFAULT[m | 
+ Dielectric region deactivated. 
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT DG...
+ INIT DG DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT PARTICLE MPI ... 
+ | [0;34m                                                            CheckExchangeProcs[m |                                  T | [0;31mDEFAULT[m | 
+ | [0;34m                                                            AbortExchangeProcs[m |                                  T | [0;31mDEFAULT[m | 
+ | [0;34m                                                       DoParticleLatencyHiding[m |                                  F | [0;31mDEFAULT[m | 
+ INIT PARTICLE MPI DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT PARTICLES ...
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT PARTICLE SURFACES...
+ | [0;34m                                                             BezierNewtonAngle[m |                        1.570796326 | [0;31mDEFAULT[m | 
+ | [0;34m                                                           BezierClipTolerance[m |                            1.0E-08 | [0;31mDEFAULT[m | 
+ | [0;34m                                                         BezierNewtonTolerance[m |                            1.0E-04 | [0;31mDEFAULT[m | 
+ | [0;34m                                                             BezierNewtonGuess[m |                                  1 | [0;31mDEFAULT[m | 
+ | [0;34m                                                           BezierNewtonMaxIter[m |                                100 | [0;31mDEFAULT[m | 
+ | [0;34m                                                              BezierSplitLimit[m |                                0.6 | [0;31mDEFAULT[m | 
+ | [0;34m                                                             BezierClipMaxIter[m |                                100 | [0;31mDEFAULT[m | 
+ | [0;34m                                                    BezierClipLineVectorMethod[m |                                  2 | [0;31mDEFAULT[m | 
+ | [0;34m                                                                    epsilontol[m |                                0.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                                 BezierClipHit[m |                                0.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                               BezierNewtonHit[m |                                0.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                         BezierClipMaxIntersec[m |                                  4 | [0;31mDEFAULT[m | 
+ INIT PARTICLE SURFACES DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+ | [0;34m                                                        Part-MaxParticleNumber[m |                                  2 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                       Part-MaxPartNumIncrease[m |                                0.1 | [0;31mDEFAULT[m | 
+ | [0;34m                                                         Part-RearrangePartIDs[m |                                  T | [0;31mDEFAULT[m | 
+ | [0;34m                                                   Part-MPI-UNFP-afterPartSend[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                              PrintrandomSeeds[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                      Part-NumberOfRandomSeeds[m |                                  0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                   Particles-DoPoissonRounding[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                     Particles-DoTimeDepInflow[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                        Surface-NumOfReactions[m |                                  0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                                Part-DelayTime[m |                                0.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                      Particles-ManualTimeStep[m |                               -1.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                                 Part-nSpecies[m |                                  1 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                              PIC-DoDeposition[m |                                  F | [0;32m*CUSTOM[m | 
+ | [0;34m                                                    Particles-Species-Database[m |                               none | [0;31mDEFAULT[m | 
+ | [0;34m                                                     Part-Species1-SpeciesName[m |                               none | [0;31mDEFAULT[m | 
+ | [0;34m                                           Part-Species1-DoOverwriteParameters[m |                                  F | [0;31mDEFAULT[m | 
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
+ | [0;34m                                                        Part-Species1-ChargeIC[m |                                1.0 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                          Part-Species1-MassIC[m |                                1.0 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                   Part-Species1-InteractionID[m |                                  0 | [0;31mDEFAULT[m | 
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
+ | [0;34m                                               Particles-BGGas-UseDistribution[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                      Particles-BGGas-nRegions[m |                                  0 | [0;31mDEFAULT[m | 
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
+ | [0;34m                                                          Part-Species1-nInits[m |                                  1 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                           Part-Species1-Reset[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                             Part-Species1-MacroParticleFactor[m |                                1.0 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                  Part-Species1-TimeStepFactor[m |                                1.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                      Part-Species1-Init1-ParticleEmissionType[m |                                  0 | [0;31mDEFAULT[m | 
+ | [0;34m                                            Part-Species1-Init1-ParticleNumber[m |                                1.0 | [0;32m*CUSTOM[m | 
+ | [0;34m                                               Part-Species1-Init1-PartDensity[m |                                0.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                           Part-Species1-Init1-MWTemperatureIC[m |                                0.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                   Part-Species1-Init1-SpaceIC[m |                              point | [0;32m*CUSTOM[m | 
+ | [0;34m                                      Part-Species1-Init1-velocityDistribution[m |                           constant | [0;32m*CUSTOM[m | 
+ | [0;34m                                                    Part-Species1-Init1-VeloIC[m |                                1.0 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                 Part-Species1-Init1-VeloVecIC[m |                (/ 0.0, 1.0, 0.0 /) | [0;32m*CUSTOM[m | 
+ | [0;34m                                                  Part-Species1-Init1-NormalIC[m |                (/ 0.0, 0.0, 0.0 /) | [0;31mDEFAULT[m | 
+ | [0;34m                                               Part-Species1-Init1-BasePointIC[m |                (/ 0.0, 0.0, 0.0 /) | [0;32m*CUSTOM[m | 
+ | [0;34m                                             Part-Species1-Init1-BaseVector1IC[m |                (/ 1.0, 0.0, 0.0 /) | [0;31mDEFAULT[m | 
+ | [0;34m                                             Part-Species1-Init1-BaseVector2IC[m |                (/ 0.0, 1.0, 0.0 /) | [0;31mDEFAULT[m | 
+ | [0;34m                                            Part-Species1-Init1-InflowRiseTime[m |                                0.0 | [0;31mDEFAULT[m | 
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
+ | [0;34m                                                              Part-LorentzType[m |               non-relativistic (0) | [0;31mDEFAULT[m | 
+ | [0;34m                                                                  Part-nBounds[m |                                  1 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                                Surf-nPorousBC[m |                                  0 | [0;31mDEFAULT[m | 
+ | [0;34m                                              Part-Boundary1-NbrOfSpeciesSwaps[m |                                  0 | [0;32m*CUSTOM[m | 
+ | [0;34m                                              PartBound-OutputBCDataForTesting[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                      Part-Boundary1-Condition[m |                               open | [0;32m*CUSTOM[m | 
+ | [0;34m                                                     Part-Boundary1-SourceName[m |                       BC_absorbing | [0;32m*CUSTOM[m | 
+ | [0;34m                                         Part-Boundary1-BoundaryParticleOutput[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                            Part-AdaptWallTemp[m |                                  F | [0;31mDEFAULT[m | 
+ | Mapped PartBound           1 on FieldBound           1 , i.e.: BC_absorbing
+ | [0;34m                                                           PIC-DoInterpolation[m |                                  F | [0;32m*CUSTOM[m | 
+ | [0;34m                                                   PIC-DoInterpolationAnalytic[m |                                  T | [0;32m*CUSTOM[m | 
+ | [0;34m                                                       Part-DoVirtualCellMerge[m |                                  F | [0;31mDEFAULT[m | 
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT PARTICLE MESH ...
+ | [0;34m                                                              Part-nSurfSample[m |                                  1 | [0;31mDEFAULT[m | 
+ | [0;34m                                                               BezierElevation[m |                                  0 | [0;31mDEFAULT[m | 
+ CALCULATING BezierControlPoints ...
+ | Total MESH   Dim (x,y,z):     0.20000000E+02,     0.20000000E+02,     0.20000000E+02
+ | Total BEZIER Dim (x,y,z):     0.20000000E+02,     0.20000000E+02,     0.20000000E+02
+ | [0;34m                                                               Part-ForceFIBGM[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                              Part-FIBGMdeltas[m |                (/ 5.0, 5.0, 5.0 /) | [0;32m*CUSTOM[m | 
+ | [0;34m                                                              Part-FactorFIBGM[m |                (/ 1.0, 1.0, 1.0 /) | [0;31mDEFAULT[m | 
+ | [0;34m                                                         Part-nPeriodicVectors[m |                                  0 | [0;31mDEFAULT[m | 
+ | Total FIBGM Cells(x,y,z):                  4,                  4,                  4
+ | [0;34m                                                             Part-SafetyFactor[m |                                1.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                         Particles-HaloEpsVelo[m |                                0.0 | [0;31mDEFAULT[m | 
+ | Found max. cell radius as  0.1732051E+02, for building halo BGM ... DETERMINED compute-node (CN) halo region ...
+ | CN Rank | Local Elements | Halo Elements (non-peri) | Halo Elements (peri) | Halo Elements (Mortar) |
+ |>      0 |              1 |                        0 |                    0 |                      0 |
+ 
+  | Found max. cell radius as  0.1732051E+02, for building halo BGM ...DONE! [ 0.00 sec ] [ 0:00:00:00 ]
+------------------------------------------------------------------------------------------------------------------------------------
+ BUILDING FIBGM ELEMENT MAPPING ... DONE! [ 0.00 sec ] [ 0:00:00:00 ]
+------------------------------------------------------------------------------------------------------------------------------------
+ |                                                 Elems per FIBGM cell (min,max) |                         (/ 1, 1 /) |    INFO | 
+ | [0;34m                                                                  CalcHaloInfo[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                           CountNbrOfLostParts[m |                                  T | [0;31mDEFAULT[m | 
+ | [0;34m                                                          DisplayLostParticles[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                 PhotonModeBPO[m |                                  0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                   DoBoundaryParticleOutputRay[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                       PartOut[m |                                  0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                                    MPIRankOut[m |                                 -1 | [0;31mDEFAULT[m | 
+ | [0;34m                                                              MeasureTrackTime[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                             CartesianPeriodic[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                               RefMappingGuess[m |                                  1 | [0;31mDEFAULT[m | 
+ | [0;34m                                                                 RefMappingEps[m |                            1.0E-04 | [0;31mDEFAULT[m | 
+ | [0;34m                                                               TriaSurfaceFlux[m |                                  F | [0;31mDEFAULT[m | 
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT PARTICLE GEOMETRY INFORMATION...
+ | [0;34m                                                        meshCheckWeirdElements[m |                                  T | [0;31mDEFAULT[m | 
+------------------------------------------------------------------------------------------------------------------------------------
+ CHECKING FOR WEIRD ELEMENTS...
+ CHECKING FOR WEIRD ELEMENTS DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT PARTICLE GEOMETRY INFORMATION DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+ Identifying side types (planar, bilinear) and whether elements are curved ...
+ | Number of planar-rectangular     faces:        6
+ | Number of planar-non-rectangular faces:        0
+ | Number of bi-linear              faces:        0
+ | Number of planar-curved          faces:        0
+ | Number of curved                 faces:        0
+ | Number of (bi-)linear            elems:        1
+ | Number of curved                 elems:        0
+------------------------------------------------------------------------------------------------------------------------------------
+ GET LINEAR SIDE BASEVECTORS... DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+ Identifying BC sides and calculating side metrics ...
+ | No halo_eps given. Reconstructed to global diag with   0.346E+02
+------------------------------------------------------------------------------------------------------------------------------------
+ Building EpsOneCell for all elements ... DONE! [ 0.00 sec ] [ 0:00:00:00 ]
+------------------------------------------------------------------------------------------------------------------------------------
+ | [0;34m                                                                 BezierSampleN[m |                                  1 | [0;31mDEFAULT[m | 
+ InitParticleMesh: NOW CALLING deleteMeshPointer...
+ INIT PARTICLE MESH DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+ IDENTIFYING Particle Exchange Processors ...
+ | Running on one processor. Particle exchange communication disabled.
+ IDENTIFYING Particle Exchange Processors ... DONE! [ 0.00 sec ] [ 0:00:00:00 ]
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT PIC ...
+ INIT PARTICLE INTERPOLATION...
+ | [0;34m                                                        PIC-Interpolation-Type[m |                  particle_position | [0;32m*CUSTOM[m | 
+ | [0;34m                                                     PIC-InterpolationElemLoop[m |                                  T | [0;31mDEFAULT[m | 
+ | [0;34m                                                             PIC-externalField[m | (/ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 /) | [0;32m*CUSTOM[m | 
+ | [0;34m                                                        PIC-scaleexternalField[m |                                1.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                                  PIC-BG-Field[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                     PIC-variableExternalField[m |                               none | [0;31mDEFAULT[m | 
+ | [0;34m                                                    PIC-AlgebraicExternalField[m |                                  0 | [0;31mDEFAULT[m | 
+ | [0;34m                                               PIC-AlgebraicExternalFieldDelta[m |                                  2 | [0;31mDEFAULT[m | 
+ | [0;34m                                                PIC-AnalyticInterpolation-Type[m |                                  1 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                PIC-AnalyticInterpolationPhase[m |                                0.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                             PIC-AnalyticInterpolation-SubType[m |                                 31 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                    PIC-AnalyticInterpolationP[m |                                2.0 | [0;32m*CUSTOM[m | 
+ INIT PARTICLE INTERPOLATION DONE!
+ INIT PARTICLE DEPOSITION...
+ INIT PIC DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+ Emission-Region,Emission-Communicator: 1 on 1 procs (point, iSpec=1)
+ | [0;34m                                                 Particles-DSMC-CalcSurfaceVal[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                               Part-SampleElectronicExcitation[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                         Part-WriteMacroValues[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                   Part-WriteMacroVolumeValues[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                  Part-WriteMacroSurfaceValues[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                     Part-IterationForMacroVal[m |                                  1 | [0;31mDEFAULT[m | 
+ | [0;34m                                                      Part-TimeFracForSampling[m |                                0.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                      Part-DoInitialIonization[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                        Part-DoFieldIonization[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                              Part-UseRotationalReferenceFrame[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                Part-RotRefFrame-UseSubCycling[m |                                  F | [0;31mDEFAULT[m | 
+           0  ===== SINGLE AREA =====
+           0 SideID:           1 areaTotal   =   400.00000000000000     
+           0 SideID:           1 areaTotalAbs=   400.00000000000000     
+           0  ============================
+           0  ===== SINGLE AREA =====
+           0 SideID:           2 areaTotal   =   400.00000000000000     
+           0 SideID:           2 areaTotalAbs=   400.00000000000000     
+           0  ============================
+           0  ===== SINGLE AREA =====
+           0 SideID:           3 areaTotal   =   400.00000000000000     
+           0 SideID:           3 areaTotalAbs=   400.00000000000000     
+           0  ============================
+           0  ===== SINGLE AREA =====
+           0 SideID:           4 areaTotal   =   400.00000000000000     
+           0 SideID:           4 areaTotalAbs=   400.00000000000000     
+           0  ============================
+           0  ===== SINGLE AREA =====
+           0 SideID:           5 areaTotal   =   400.00000000000000     
+           0 SideID:           5 areaTotalAbs=   400.00000000000000     
+           0  ============================
+           0  ===== SINGLE AREA =====
+           0 SideID:           6 areaTotal   =   400.00000000000000     
+           0 SideID:           6 areaTotalAbs=   400.00000000000000     
+           0  ============================
+           0  ===== TOTAL AREA (all BCsides) =====
+           0 totalArea       =    2400.0000000000000     
+           0 totalArea/(pi) =    763.94372684109760     
+           0  ===== TOTAL AREA (all BCsides) =====
+ | [0;34m                                                 Part-Species1-nSurfacefluxBCs[m |                                  0 | [0;31mDEFAULT[m | 
+ WARNING: No Sides for SurfacefluxBCs found! DoSurfaceFlux is now disabled!
+ | [0;34m                                                        DoForceFreeSurfaceFlux[m |                                  F | [0;31mDEFAULT[m | 
+ INIT SURFACE SIDES ...
+ Surface sides: Communicator on 1 procs
+ INIT SURFACE SIDES DONE!
+ INITIAL PARTICLE INSERTING...
+ INITIAL PARTICLE INSERTING DONE! [ 0.00 sec ] [ 0:00:00:00 ]
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT PARTICLES DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT ANALYZE...
+ | [0;34m                                                              DoCalcErrorNorms[m |                                  T | [0;32m*CUSTOM[m | 
+ | [0;34m                                                          OutputErrorNormsToH5[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                    Analyze_dt[m |                            2.0E+06 | [0;32m*CUSTOM[m | 
+ | [0;34m                                                                  nSkipAnalyze[m |                                  1 | [0;31mDEFAULT[m | 
+ | [0;34m                                                             SkipAnalyzeWindow[m |                               -1.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                               OutputTimeFixed[m |                               -1.0 | [0;31mDEFAULT[m | 
+ | [0;34m                                                               CalcTimeAverage[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                             Field-AnalyzeStep[m |                                  1 | [0;31mDEFAULT[m | 
+ | [0;34m                                                           CalcPotentialEnergy[m |                                  T | [0;32m*CUSTOM[m | 
+ | [0;34m                                                       CalcPoyntingVecIntegral[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                       CalcBoundaryFieldOutput[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                          DoMeasureAnalyzeTime[m |                                  F | [0;31mDEFAULT[m | 
+ INIT ANALYZE DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+ | [0;34m                                                       CalcPointsPerWavelength[m |                                  F | [0;31mDEFAULT[m | 
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT PARTICLE ANALYZE...
+ | [0;34m                                                           CalcPICCFLCondition[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                       CalcMaxPartDisplacement[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                      CalcPointsPerDebyeLength[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                               CalcPICTimeStep[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                           CalcPlasmaFrequency[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                           CalcPlasmaParameter[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                        CalcNumPlasmaParameter[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                               CalcDebyeLength[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                          CalcIonizationDegree[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                      CalcPICTimeStepCyclotron[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                        CalcCyclotronFrequency[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                        CalcElectronIonDensity[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                       CalcElectronTemperature[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                            CalcElectronEnergy[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                              Part-AnalyzeStep[m |                                  1 | [0;31mDEFAULT[m | 
+ | Deposition is switched off. VerifyCharge and CalcCharge are deactivated!
+ | [0;34m                                                             CalcKineticEnergy[m |                                  T | [0;32m*CUSTOM[m | 
+ | [0;34m                                                          CalcLaserInteraction[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                            CalcInternalEnergy[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                      CalcTemp[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                              CalcCoupledPower[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                               CalcPartBalance[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                            Part-TrackPosition[m |                                  T | [0;32m*CUSTOM[m | 
+ | [0;34m                                                                     printDiff[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                   CalcNumSpec[m |                                  T | [0;32m*CUSTOM[m | 
+ | [0;34m                                                                   CalcNumDens[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                              CalcSurfFluxInfo[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                 CalcCollRates[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                 CalcReacRates[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                 CalcRelaxProb[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                     CalcVelos[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                   CalcParticlePotentialEnergy[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                               CalcTotalEnergy[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                                     IsRestart[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                             CalcEMFieldOutput[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                          CalcGranularDragHeat[m |                                  F | [0;31mDEFAULT[m | 
+ INIT PARTCILE ANALYZE DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT SURFACE MODEL ANALYZE...
+ | [0;34m                                                           Surface-AnalyzeStep[m |                                  1 | [0;31mDEFAULT[m | 
+ | [0;34m                                                          Surf-CalcCollCounter[m |                                  F | [0;31mDEFAULT[m | 
+ | [0;34m                                                    CalcBoundaryParticleOutput[m |                                  F | [0;31mDEFAULT[m | 
+ INIT SURFACE MODEL ANALYZE DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+ INIT INTERFACES...
+ INIT INTERFACES DONE!
+------------------------------------------------------------------------------------------------------------------------------------
+====================================================================================================================================
+ Following 4 Parameters are defined in INI but not called!
+[0;31mPIC-VerifyCharge
+[m[0;31mPIC-OutputSource
+[m[0;31mPIC-shapefunction-radius
+[m[0;31mPIC-shapefunction-alpha
+[m====================================================================================================================================
+ DELETING OLD HDF5 FILES... DONE!
+====================================================================================================================================
+ INITIALIZATION DONE! [ 0.21 sec ] [ 0:00:00:00 ]
+====================================================================================================================================
+#GridCells :    1.0000000E+00
+#DOFs      :    8.0000000E+00   |   polynomial degree min/max : 1/1  |   #DOFs in each element min/max : 8/8
+#Procs     :    1.0000000E+00
+#DOFs/Proc :    8.0000000E+00
+------------------------------------------------------------------------------------------------------------------------------------
+Initial Timestep  :    3.0170502E-02
+ Sim time  :    0.0000000E+00
+ L2_Part   :    0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00
+ L_2       :    0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00
+ L_inf     :    0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00
+ Sim time  :    0.0000000E+00
+====================================================================================================================================
+ WRITE STATE TO HDF5 FILE [single-particle_State_000.00000000000000000.h5] ... DONE [ 0.01 sec ] [ 0:00:00:00 ]
+#Particles :    1.0000000E+00    Average particles per proc :    1.0000000E+00    Min :    1.0000000E+00    Max :    1.0000000E+00
+ CALCULATION RUNNING...
+ iter:                 1000 time:   3.0170501783899983E+001
+ L_2       :    0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00
+ L_inf     :    0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00   0.0000000E+00
+ Sim time  :    3.0628000E+01
+....................................................................................................................................
+ PICLAS RUNNING single-particle... [ 0.30 sec ] [ 0:00:00:00 ]
+------------------------------------------------------------------------------------------------------------------------------------
+ Sim time  :    3.0628000E+01
+ L2_Part   :    3.5886775E-06   1.2048161E-05   0.0000000E+00   6.6990211E-06   6.8925481E-06   0.0000000E+00   0.0000000E+00
+CODE_ANALYZE: Following output has been accumulated
+               rTotalBBChecks    :   0.0000000E+00
+               rTotalBezierClips :   0.0000000E+00
+               rTotalBezierNewton:   0.0000000E+00
+------------------------------------------------------------------------------------------------------------------------------------
+ Sys date  :    26.06.2026 14:43:24
+ PID: CALCULATION TIME PER TSTEP/DOF: [ 9.87160E-06 sec ]
+ EFFICIENCY: SIMULATION TIME PER CALCULATION in [s]/[Core-h]: [ 4.17004E+05 sec/h ]
+ Timestep  :    3.0170502E-02
+#Timesteps :    1.0160000E+03
+ WRITE STATE TO HDF5 FILE [single-particle_State_030.62800000000000011.h5] ... DONE [ 0.00 sec ] [ 0:00:00:00 ]
+#Particles :    1.0000000E+00    Average particles per proc :    1.0000000E+00    Min :    1.0000000E+00    Max :    1.0000000E+00
+------------------------------------------------------------------------------------------------------------------------------------
+#Particles :    1.0000000E+00 (peak)         Average (peak) :    1.0000000E+00    Min :    1.0000000E+00    Max :    1.0000000E+00
+====================================================================================================================================
+ PICLAS FINISHED! [ 0.30 sec ] [ 0:00:00:00 ]
+====================================================================================================================================

@@ -1570,8 +1570,13 @@ class PerformCheck:
 
             # 4.2    execute the binary file for one combination of parameters
             if args.dry_run:
+                # write the std.out files from the cwd into the run attribute (since no std.out was generated in dry run mode)
                 print(tools.indent(tools.yellow('dry-run: skipping execution'), 2))
-                stdout_path = os.path.join(run.target_directory, 'std.out')
+                # for convergence tests the std.out file needs to be labeled to the corresponding run, e.g. run1 -> std1.out, this gets written to the correct run here
+                stdout_path_numbered = os.path.join(run.target_directory, f'std{RunCount}.out')
+                stdout_path          = os.path.join(run.target_directory, 'std.out')
+                if os.path.exists(stdout_path_numbered):
+                    stdout_path = stdout_path_numbered
                 if os.path.exists(stdout_path):
                     with open(stdout_path) as f:
                         run.stdout = f.readlines()

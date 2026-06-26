@@ -164,6 +164,9 @@ jobs:
           - CHE_Analyze_compare_data_file
           - CHE_Analyze_integrate_line
           - CHE_Analyze_vtudiff
+          - CHE_Analyze_Convtest_h
+          - CHE_Analyze_Convtest_p
+          - CHE_Analyze_Convtest_t
     steps:
       - uses: actions/checkout@v6
       - uses: actions/cache@v5
