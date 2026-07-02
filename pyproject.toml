@@ -57,6 +57,7 @@ indent-width = 4
 force-exclude = true
 exclude = [
     "reggie/__init__.py",
+    "regressioncheck",
     # Exclude a variety of commonly ignored directories.
     ".git",
     ".pyenv",
