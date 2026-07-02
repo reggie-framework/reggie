@@ -1308,6 +1308,25 @@ class Analyze_h5diff(Analyze, ExternalCommand):
         # set logical for creating new reference files and copying them to the example source directory
         self.referencescopy = h5diff.referencescopy
 
+    @staticmethod
+    def get_variable_dimension(f, variable_attribute, variable_name):
+        '''Check dataset for variable names in attributes and return the index of the variable name (corresponds to the column of the hdf5 array)'''
+        # Check if the dataset has attributes containing variable names for dimensions
+        dataset = f
+        # check if attribute exists (case insensitive)
+        attrs = list(dataset.attrs)
+        lower_attrs = [attr.lower() for attr in attrs]
+        if variable_attribute.lower() in lower_attrs:
+            variable_attribute_index = lower_attrs.index(variable_attribute.lower())
+            # attr_name is correctly spelled name of the attribute
+            attr_name = attrs[variable_attribute_index]
+            variable_names = [name.decode('utf-8').lower() for name in dataset.attrs[attr_name]]
+            # check if variable name exists (case insensitive)
+            if variable_name.lower() in variable_names:
+                return list(variable_names).index(variable_name.lower())
+            return tools.red(f"Variable name '{variable_name}' not found in dimension names.")
+        return tools.red(f"No '{variable_attribute}' attribute found in file '{f}'.")
+
     def perform(self, runs):
         # Check if this analysis can be performed: h5py must be imported
         if not h5py_module_loaded:  # this boolean is set when importing h5py
@@ -1624,36 +1643,23 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                             if compare_single_variable:
                                 # Open datasets again to get dimension sizes
                                 f1 = h5py.File(path, 'r')
+                                dim1 = self.get_variable_dimension(f1, var_attribute_loc, var_name_loc)
+                                f1.close()
+                                if isinstance(dim1, str):
+                                    print(dim1)
+                                    run.analyze_results.append(dim1)
+                                    run.analyze_successful = False
+                                    Analyze.total_errors += 1
+                                    continue
                                 f2 = h5py.File(path_ref_target, 'r')
-
-                                def get_variable_dimension(f, dataset_path, variable_attribute, variable_name):
-                                    '''Check dataset for variable names in attributes and return the index of the variable name (corresponds to the column of the hdf5 array)'''
-                                    # Check if the dataset has attributes containing variable names for dimensions
-                                    try:
-                                        dataset = f
-                                        # check if attribute exists (case insensitive)
-                                        attrs = list(dataset.attrs)
-                                        lower_attrs = [attr.lower() for attr in attrs]
-                                        if variable_attribute.lower() in lower_attrs:
-                                            variable_attribute_index = lower_attrs.index(variable_attribute.lower())
-                                            # attr_name is correctly spelled name of the attribute
-                                            attr_name = attrs[variable_attribute_index]
-                                            variable_names = [name.decode('utf-8').lower() for name in dataset.attrs[attr_name]]
-                                            # check if variable name exists (case insensitive)
-                                            if variable_name.lower() in variable_names:
-                                                f.close()
-                                                return list(variable_names).index(variable_name.lower())
-                                            print(f"Variable name '{variable_name}' not found in dimension names.")
-                                        else:
-                                            print(f"No '{variable_attribute}' attribute found in dataset '{dataset_path}'.")
-                                    except KeyError:
-                                        print(f"Dataset '{dataset_path}' not found in the file.")
-                                        return None
-                                    else:
-                                        return None
-
-                                dim1 = get_variable_dimension(f1, data_set_loc_file, var_attribute_loc, var_name_loc)
-                                dim2 = get_variable_dimension(f2, data_set_loc_ref, var_attribute_loc, var_name_loc)
+                                dim2 = self.get_variable_dimension(f2, var_attribute_loc, var_name_loc)
+                                f2.close()
+                                if isinstance(dim2, str):
+                                    print(dim2)
+                                    run.analyze_results.append(dim2)
+                                    run.analyze_successful = False
+                                    Analyze.total_errors += 1
+                                    continue
                                 # Extract slices along the specified dimension from arrays b1 and b2 which are already reshaped/flipped so they have the same dimensions
                                 # if arrays were flipped dim1 and dim2 correspond to rows
                                 if flip_loc:
@@ -1973,7 +1979,8 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
         # set logical for creating new reference files and copying them to the example source directory
         self.referencescopy = vtudiff.referencescopy
 
-    def read_in_vtk_data(self, data_reader, single_array_name=None):
+    @staticmethod
+    def read_in_vtk_data(data_reader, path, single_array_name=None):
         '''
         Function to read in data from vtk file and return numpy array
 
@@ -1981,6 +1988,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
 
         Input arguments:
         - data_reader: vtk reader object
+        - path: path to the file containing the vtk arrays
         - single_array_name: string containing the name of the array to be read in (if None, all arrays are read in)
 
         Return values:
@@ -2002,17 +2010,18 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                 array_names = [data_getter().GetArrayName(i) for i in range(num_of_arrays)]
                 lower_names = [arr_name.lower() for arr_name in array_names]
                 # check if only given arrays are compared
-                if single_array_name is not None and single_array_name.lower() in lower_names:
-                    single_array_index = lower_names.index(single_array_name.lower())
-                    # try to read in specific array but skip if it is not found in the current type (point or cell data respectively)
-                    vtk_arr = data_getter().GetArray(array_names[single_array_index])
-                    temp_array = vtk.util.numpy_support.vtk_to_numpy(vtk_arr).astype(float)
-                    # check if the array is a 1D array and reshape it to a 2D array to read in the dimensions correctly
-                    if temp_array.ndim == 1:
-                        temp_array = temp_array.reshape(-1, 1)
-                    array_names_dims[array_names[single_array_index]] = temp_array.shape[1]
-                    # only read in specific data
-                    data.append(temp_array)
+                if single_array_name is not None:
+                    if single_array_name.lower() in lower_names:
+                        single_array_index = lower_names.index(single_array_name.lower())
+                        # try to read in specific array but skip if it is not found in the current type (point or cell data respectively)
+                        vtk_arr = data_getter().GetArray(array_names[single_array_index])
+                        temp_array = vtk.util.numpy_support.vtk_to_numpy(vtk_arr).astype(float)
+                        # check if the array is a 1D array and reshape it to a 2D array to read in the dimensions correctly
+                        if temp_array.ndim == 1:
+                            temp_array = temp_array.reshape(-1, 1)
+                        array_names_dims[array_names[single_array_index]] = temp_array.shape[1]
+                        # only read in specific data
+                        data.append(temp_array)
 
                 else:
                     for i in range(num_of_arrays):
@@ -2023,6 +2032,9 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                         data.append(temp_array)
                         array_names_dims[data_getter().GetArrayName(i)] = temp_array.shape[1]
 
+        # single_array_name defaults to None which should check all arrays and data is empty if no array was matched
+        if single_array_name is not None and not data:
+            return tools.red(f'Array {single_array_name} not found in vtu file {path}'), None
         # Convert the list to a single numpy array (concatenated along columns) for each data type (point or cell data respectively)
         numpy_data = np.hstack(data) if data else np.array([])
         return numpy_data, array_names_dims
@@ -2126,7 +2138,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                 # Sanity check if file was read
                 if reader.CanReadFile(path) != 1:
                     s = tools.red(f"Analyze_vtudiff: Could not open .vtu file [{path}]. Please make sure the provided reference file is a .vtu file and the result of the simulation is converted using piclas2vtk!")
-                    run.analyze_results.appends(s)
+                    run.analyze_results.append(s)
                     run.analyze_successful = False
                     Analyze.total_errors += 1
                     continue
@@ -2141,7 +2153,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                     s = tools.red(
                         f"Analyze_vtudiff: Could not open .vtu file [{path_ref_target}]. Please make sure the provided reference file is a .vtu file and the result of the simulation is converted using piclas2vtk!"
                     )
-                    run.analyze_results.appends(s)
+                    run.analyze_results.append(s)
                     run.analyze_successful = False
                     Analyze.total_errors += 1
                     continue
@@ -2155,8 +2167,21 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                     else:
                         array_name_loc_file = array_name_loc
                         array_name_loc_ref = array_name_loc
-                    vtu_data, array_names_dims = self.read_in_vtk_data(reader, array_name_loc_file)
-                    vtu_data_ref, array_names_dims_ref = self.read_in_vtk_data(reader_ref, array_name_loc_ref)
+                    vtu_data, array_names_dims = self.read_in_vtk_data(reader, path, array_name_loc_file)
+                    # vtu_data (and vtu_data_ref) contain the error string if method fails
+                    if isinstance(vtu_data, str):
+                        print(vtu_data)
+                        run.analyze_results.append(vtu_data)
+                        run.analyze_successful = False
+                        Analyze.total_errors += 1
+                        continue
+                    vtu_data_ref, array_names_dims_ref = self.read_in_vtk_data(reader_ref, path_ref_target, array_name_loc_ref)
+                    if isinstance(vtu_data_ref, str):
+                        print(vtu_data_ref)
+                        run.analyze_results.append(vtu_data_ref)
+                        run.analyze_successful = False
+                        Analyze.total_errors += 1
+                        continue
                     try:
                         # Check if array_name_loc has not been set (because no name was stated in the analyze.ini file)
                         if array_name_loc is None:
