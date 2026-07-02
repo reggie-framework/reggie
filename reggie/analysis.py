@@ -1308,6 +1308,25 @@ class Analyze_h5diff(Analyze, ExternalCommand):
         # set logical for creating new reference files and copying them to the example source directory
         self.referencescopy = h5diff.referencescopy
 
+    @staticmethod
+    def get_variable_dimension(f, variable_attribute, variable_name):
+        '''Check dataset for variable names in attributes and return the index of the variable name (corresponds to the column of the hdf5 array)'''
+        # Check if the dataset has attributes containing variable names for dimensions
+        dataset = f
+        # check if attribute exists (case insensitive)
+        attrs = list(dataset.attrs)
+        lower_attrs = [attr.lower() for attr in attrs]
+        if variable_attribute.lower() in lower_attrs:
+            variable_attribute_index = lower_attrs.index(variable_attribute.lower())
+            # attr_name is correctly spelled name of the attribute
+            attr_name = attrs[variable_attribute_index]
+            variable_names = [name.decode('utf-8').lower() for name in dataset.attrs[attr_name]]
+            # check if variable name exists (case insensitive)
+            if variable_name.lower() in variable_names:
+                return list(variable_names).index(variable_name.lower())
+            return tools.red(f"Variable name '{variable_name}' not found in dimension names.")
+        return tools.red(f"No '{variable_attribute}' attribute found in file '{f}'.")
+
     def perform(self, runs):
         # Check if this analysis can be performed: h5py must be imported
         if not h5py_module_loaded:  # this boolean is set when importing h5py
@@ -1624,36 +1643,23 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                             if compare_single_variable:
                                 # Open datasets again to get dimension sizes
                                 f1 = h5py.File(path, 'r')
+                                dim1 = self.get_variable_dimension(f1, var_attribute_loc, var_name_loc)
+                                f1.close()
+                                if isinstance(dim1, str):
+                                    print(dim1)
+                                    run.analyze_results.append(dim1)
+                                    run.analyze_successful = False
+                                    Analyze.total_errors += 1
+                                    continue
                                 f2 = h5py.File(path_ref_target, 'r')
-
-                                def get_variable_dimension(f, dataset_path, variable_attribute, variable_name):
-                                    '''Check dataset for variable names in attributes and return the index of the variable name (corresponds to the column of the hdf5 array)'''
-                                    # Check if the dataset has attributes containing variable names for dimensions
-                                    try:
-                                        dataset = f
-                                        # check if attribute exists (case insensitive)
-                                        attrs = list(dataset.attrs)
-                                        lower_attrs = [attr.lower() for attr in attrs]
-                                        if variable_attribute.lower() in lower_attrs:
-                                            variable_attribute_index = lower_attrs.index(variable_attribute.lower())
-                                            # attr_name is correctly spelled name of the attribute
-                                            attr_name = attrs[variable_attribute_index]
-                                            variable_names = [name.decode('utf-8').lower() for name in dataset.attrs[attr_name]]
-                                            # check if variable name exists (case insensitive)
-                                            if variable_name.lower() in variable_names:
-                                                f.close()
-                                                return list(variable_names).index(variable_name.lower())
-                                            print(f"Variable name '{variable_name}' not found in dimension names.")
-                                        else:
-                                            print(f"No '{variable_attribute}' attribute found in dataset '{dataset_path}'.")
-                                    except KeyError:
-                                        print(f"Dataset '{dataset_path}' not found in the file.")
-                                        return None
-                                    else:
-                                        return None
-
-                                dim1 = get_variable_dimension(f1, data_set_loc_file, var_attribute_loc, var_name_loc)
-                                dim2 = get_variable_dimension(f2, data_set_loc_ref, var_attribute_loc, var_name_loc)
+                                dim2 = self.get_variable_dimension(f2, var_attribute_loc, var_name_loc)
+                                f2.close()
+                                if isinstance(dim2, str):
+                                    print(dim2)
+                                    run.analyze_results.append(dim2)
+                                    run.analyze_successful = False
+                                    Analyze.total_errors += 1
+                                    continue
                                 # Extract slices along the specified dimension from arrays b1 and b2 which are already reshaped/flipped so they have the same dimensions
                                 # if arrays were flipped dim1 and dim2 correspond to rows
                                 if flip_loc:
