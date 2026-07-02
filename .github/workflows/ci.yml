@@ -53,7 +53,7 @@ env:
 
 jobs:
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
-# Setup
+# Setup venv
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
   venv:
     name: Setup venv
@@ -71,30 +71,70 @@ jobs:
         run: |
           python -m venv .venv
           source .venv/bin/activate
-          python -m pip install ruff ty vulture
+          python -m pip install ruff ty vulture pyhope
           python -m pip install --editable .
 
-  piclas:
+# ----------------------------------------------------------------------------------------------------------------------------------------------------
+# piclas - download and build are two separated stages, so that both build processes (in piclas_build and Analyze_checks_piclas_reggie_build can run parallel)
+# ----------------------------------------------------------------------------------------------------------------------------------------------------
+
+  piclas_download:
     name: Clone piclas repository from github
     runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.upstream.outputs.commit }}
     steps:
-      - name: Install dependencies
-        run: sudo apt-get install -y libopenmpi-dev libhdf5-openmpi-dev hdf5-tools libopenblas-dev
+      - name: Get upstream piclas commit
+        id: upstream
+        # key the cache on the piclas HEAD commit so the clone/build is only redone when piclas changes
+        run: echo "commit=$(git ls-remote https://github.com/piclas-framework/piclas.git HEAD | cut -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v5
         id: cache
         with:
           path: piclas
-          key: piclas-${{ github.sha }}
+          key: piclas-${{ steps.upstream.outputs.commit }}
       - name: Clone piclas from github
         if: steps.cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          git clone https://github.com/piclas-framework/piclas.git
+          # shallow clone (only the latest commit) to keep the cache small
+          git clone --depth 1 https://github.com/piclas-framework/piclas.git
           cd piclas
+          # HACK: overwrite default value of HDF5_USE_STATIC_LIBRARIES in cmake/SetLibraries.cmake to FALSE, since the ubuntu
+          # libhdf5-openmpi-dev package ships both the static and shared version, but we need the shared version (which is not
+          # found, because we first look for the static version) for linking into the shared library libpiclas.so
+          # > patch the source before caching it, so every job building from this cache gets the fix
+          grep -q 'SET(HDF5_USE_STATIC_LIBRARIES TRUE)' cmake/SetLibraries.cmake
+          sed -i 's/SET(HDF5_USE_STATIC_LIBRARIES TRUE)/SET(HDF5_USE_STATIC_LIBRARIES FALSE)/' cmake/SetLibraries.cmake
+
+  piclas_build:
+    name: Build piclas executable
+    runs-on: ubuntu-latest
+    needs: [piclas_download]
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libopenmpi-dev libhdf5-openmpi-dev hdf5-tools libopenblas-dev
+      # read-only restore of the source cache (guaranteed to exist since piclas_download ran)
+      - uses: actions/cache/restore@v5
+        with:
+          path: piclas
+          key: piclas-${{ needs.piclas_download.outputs.commit }}
+          fail-on-cache-miss: true
+      # separate read/write cache for the build directory, append the testcase_dir since the build changes with the testcase
+      - uses: actions/cache@v5
+        id: cache
+        with:
+          path: piclas/build
+          key: piclas-build-${{ needs.piclas_download.outputs.commit }}-${{ inputs.testcase_dir || 'NIG_Reservoir_single_core' }}
+      - name: Build piclas
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          cd piclas
+          rm -rf build
           mkdir build
           cd build
           # create executable with tools script
-          export FFLAGS="-fPIC" CFLAGS="-fPIC" CXXFLAGS="-fPIC"
           ../tools/cmake-builds-ini.sh ../regressioncheck/${{ inputs.testcase_dir || 'NIG_Reservoir_single_core' }}/builds.ini
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -234,36 +274,72 @@ jobs:
           path: .venv
           key: venv-${{ hashFiles('pyproject.toml') }}
       - name: Install HDF5 tools
-        run: sudo apt-get install -y hdf5-tools
+        run: sudo apt-get update && sudo apt-get install -y hdf5-tools
       - name: Perform ${{ matrix.check }}
         shell: bash
         run: |
           source .venv/bin/activate
           reggie --dry-run regressioncheck/${{ matrix.check }}
 
-  Analyze_checks_piclas:
-    # these analyzes need the piclas repo and executable
+  Analyze_checks_piclas_pre_build:
+    # these analyzes need the pre-build piclas executable
+    name: Regressioncheck (with piclas pre-build) / ${{ matrix.check }}
+    runs-on: ubuntu-latest
+    needs: [venv, piclas_download, piclas_build]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - check: piclas/regressioncheck/${{ inputs.testcase_dir || 'NIG_Reservoir_single_core' }}/${{ inputs.testcase || 'RELAX_N2' }}
+            extra_args: "-e piclas/build/bin/piclas"          # use pre-build executable
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libopenmpi-dev libhdf5-openmpi-dev hdf5-tools libopenblas-dev libglu1-mesa libxcursor1 libxft2 libxinerama1
+      - uses: actions/cache@v5
+        with:
+          path: .venv
+          key: venv-${{ hashFiles('pyproject.toml') }}
+      - uses: actions/cache/restore@v5
+        with:
+          path: piclas
+          key: piclas-${{ needs.piclas_download.outputs.commit }}
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@v5
+        with:
+          path: piclas/build
+          key: piclas-build-${{ needs.piclas_download.outputs.commit }}-${{ inputs.testcase_dir || 'NIG_Reservoir_single_core' }}
+          fail-on-cache-miss: true
+      - name: Perform ${{ matrix.check }} ${{ matrix.extra_args }}
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          reggie ${{ matrix.check }} ${{ matrix.extra_args }}
+
+  Analyze_checks_piclas_reggie_build:
+    # these analyzes need the piclas repo and build the executable within reggie
     name: Regressioncheck (with piclas builds) / ${{ matrix.check }}
     runs-on: ubuntu-latest
-    needs: [venv, piclas]
+    needs: [venv, piclas_download]
     strategy:
       fail-fast: false
       matrix:
         include:
           - check: piclas/regressioncheck/${{ inputs.testcase_dir_build || 'CHE_maxwell' }}
-            extra_args: ""                                          # no extra arguments, since reggie builds the executable itself
-          - check: piclas/regressioncheck/${{ inputs.testcase_dir || 'NIG_Reservoir_single_core' }}/${{ inputs.testcase || 'RELAX_N2' }}
-            extra_args: "--e piclas/build/bin/piclas"          # use pre-built executable
+            extra_args: "--basedir piclas"          # reggie builds the executable itself and needs the dir containing the CMakeLists.txt
     steps:
       - uses: actions/checkout@v5
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libopenmpi-dev libhdf5-openmpi-dev hdf5-tools libopenblas-dev
       - uses: actions/cache@v5
         with:
           path: .venv
           key: venv-${{ hashFiles('pyproject.toml') }}
-      - uses: actions/cache@v5
+      - uses: actions/cache/restore@v5
         with:
           path: piclas
-          key: piclas-${{ github.sha }}
+          key: piclas-${{ needs.piclas_download.outputs.commit }}
+          fail-on-cache-miss: true
       - name: Perform ${{ matrix.check }} ${{ matrix.extra_args }}
         shell: bash
         run: |
