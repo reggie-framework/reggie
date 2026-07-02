@@ -1979,7 +1979,8 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
         # set logical for creating new reference files and copying them to the example source directory
         self.referencescopy = vtudiff.referencescopy
 
-    def read_in_vtk_data(self, data_reader, single_array_name=None):
+    @staticmethod
+    def read_in_vtk_data(data_reader, path, single_array_name=None):
         '''
         Function to read in data from vtk file and return numpy array
 
@@ -1987,6 +1988,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
 
         Input arguments:
         - data_reader: vtk reader object
+        - path: path to the file containing the vtk arrays
         - single_array_name: string containing the name of the array to be read in (if None, all arrays are read in)
 
         Return values:
@@ -2008,17 +2010,18 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                 array_names = [data_getter().GetArrayName(i) for i in range(num_of_arrays)]
                 lower_names = [arr_name.lower() for arr_name in array_names]
                 # check if only given arrays are compared
-                if single_array_name is not None and single_array_name.lower() in lower_names:
-                    single_array_index = lower_names.index(single_array_name.lower())
-                    # try to read in specific array but skip if it is not found in the current type (point or cell data respectively)
-                    vtk_arr = data_getter().GetArray(array_names[single_array_index])
-                    temp_array = vtk.util.numpy_support.vtk_to_numpy(vtk_arr).astype(float)
-                    # check if the array is a 1D array and reshape it to a 2D array to read in the dimensions correctly
-                    if temp_array.ndim == 1:
-                        temp_array = temp_array.reshape(-1, 1)
-                    array_names_dims[array_names[single_array_index]] = temp_array.shape[1]
-                    # only read in specific data
-                    data.append(temp_array)
+                if single_array_name is not None:
+                    if single_array_name.lower() in lower_names:
+                        single_array_index = lower_names.index(single_array_name.lower())
+                        # try to read in specific array but skip if it is not found in the current type (point or cell data respectively)
+                        vtk_arr = data_getter().GetArray(array_names[single_array_index])
+                        temp_array = vtk.util.numpy_support.vtk_to_numpy(vtk_arr).astype(float)
+                        # check if the array is a 1D array and reshape it to a 2D array to read in the dimensions correctly
+                        if temp_array.ndim == 1:
+                            temp_array = temp_array.reshape(-1, 1)
+                        array_names_dims[array_names[single_array_index]] = temp_array.shape[1]
+                        # only read in specific data
+                        data.append(temp_array)
 
                 else:
                     for i in range(num_of_arrays):
@@ -2029,6 +2032,9 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                         data.append(temp_array)
                         array_names_dims[data_getter().GetArrayName(i)] = temp_array.shape[1]
 
+        # single_array_name defaults to None which should check all arrays and data is empty if no array was matched
+        if single_array_name is not None and not data:
+            return tools.red(f'Array {single_array_name} not found in vtu file {path}'), None
         # Convert the list to a single numpy array (concatenated along columns) for each data type (point or cell data respectively)
         numpy_data = np.hstack(data) if data else np.array([])
         return numpy_data, array_names_dims
@@ -2132,7 +2138,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                 # Sanity check if file was read
                 if reader.CanReadFile(path) != 1:
                     s = tools.red(f"Analyze_vtudiff: Could not open .vtu file [{path}]. Please make sure the provided reference file is a .vtu file and the result of the simulation is converted using piclas2vtk!")
-                    run.analyze_results.appends(s)
+                    run.analyze_results.append(s)
                     run.analyze_successful = False
                     Analyze.total_errors += 1
                     continue
@@ -2147,7 +2153,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                     s = tools.red(
                         f"Analyze_vtudiff: Could not open .vtu file [{path_ref_target}]. Please make sure the provided reference file is a .vtu file and the result of the simulation is converted using piclas2vtk!"
                     )
-                    run.analyze_results.appends(s)
+                    run.analyze_results.append(s)
                     run.analyze_successful = False
                     Analyze.total_errors += 1
                     continue
@@ -2161,8 +2167,21 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                     else:
                         array_name_loc_file = array_name_loc
                         array_name_loc_ref = array_name_loc
-                    vtu_data, array_names_dims = self.read_in_vtk_data(reader, array_name_loc_file)
-                    vtu_data_ref, array_names_dims_ref = self.read_in_vtk_data(reader_ref, array_name_loc_ref)
+                    vtu_data, array_names_dims = self.read_in_vtk_data(reader, path, array_name_loc_file)
+                    # vtu_data (and vtu_data_ref) contain the error string if method fails
+                    if isinstance(vtu_data, str):
+                        print(vtu_data)
+                        run.analyze_results.append(vtu_data)
+                        run.analyze_successful = False
+                        Analyze.total_errors += 1
+                        continue
+                    vtu_data_ref, array_names_dims_ref = self.read_in_vtk_data(reader_ref, path_ref_target, array_name_loc_ref)
+                    if isinstance(vtu_data_ref, str):
+                        print(vtu_data_ref)
+                        run.analyze_results.append(vtu_data_ref)
+                        run.analyze_successful = False
+                        Analyze.total_errors += 1
+                        continue
                     try:
                         # Check if array_name_loc has not been set (because no name was stated in the analyze.ini file)
                         if array_name_loc is None:
