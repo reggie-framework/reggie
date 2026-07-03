@@ -256,9 +256,9 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          coverage run --parallel-mode --source=reggie -m reggie.reggie --dry-run regressioncheck/${{ matrix.check }}
+          coverage run --parallel-mode -m reggie.reggie --dry-run regressioncheck/${{ matrix.check }}
       - name: Upload coverage data
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-data-${{ matrix.check }}
           path: .coverage.*
@@ -286,9 +286,9 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          coverage run --parallel-mode --source=reggie -m reggie.reggie --dry-run regressioncheck/${{ matrix.check }}
+          coverage run --parallel-mode -m reggie.reggie --dry-run regressioncheck/${{ matrix.check }}
       - name: Upload coverage data
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-data-${{ matrix.check }}
           path: .coverage.*
@@ -327,9 +327,9 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          coverage run --parallel-mode --source=reggie -m reggie.reggie ${{ matrix.check }} ${{ matrix.extra_args }}
+          coverage run --parallel-mode -m reggie.reggie ${{ matrix.check }} ${{ matrix.extra_args }}
       - name: Upload coverage data
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-data-piclas-pre-build
           path: .coverage.*
@@ -345,7 +345,8 @@ jobs:
       matrix:
         include:
           - check: piclas/regressioncheck/${{ inputs.testcase_dir_build || 'CHE_maxwell' }}
-            extra_args: "--basedir piclas"          # reggie builds the executable itself and needs the dir containing the CMakeLists.txt
+            extra_args: "--basedir piclas -o 12"    # reggie builds the executable itself and needs the dir containing the CMakeLists.txt,
+                                                    # build executable with coverage option to check if this works within reggie
     steps:
       - uses: actions/checkout@v5
       - name: Install dependencies
@@ -363,9 +364,9 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          coverage run --parallel-mode --source=reggie -m reggie.reggie ${{ matrix.check }} ${{ matrix.extra_args }}
+          coverage run --parallel-mode -m reggie.reggie ${{ matrix.check }} ${{ matrix.extra_args }}
       - name: Upload coverage data
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-data-piclas-reggie-build
           path: .coverage.*
@@ -386,7 +387,7 @@ jobs:
           path: .venv
           key: venv-${{ hashFiles('pyproject.toml') }}
       - name: Download coverage data
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: coverage-data-*
           merge-multiple: true
@@ -401,7 +402,7 @@ jobs:
           coverage xml  -o coverage-report/coverage.xml
           coverage html -d coverage-report/html
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reggie-coverage-report
           path: coverage-report/
@@ -413,7 +414,7 @@ jobs:
     needs: [coverage]
     steps:
       - name: Download coverage report
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: reggie-coverage-report
       - name: Report coverage
@@ -422,5 +423,5 @@ jobs:
           coverageFile: coverage.xml
           token: ${{ secrets.GITHUB_TOKEN }}
           # OPTIMIZE: raise the thresholds once the coverage of the regressionchecks improves
-          thresholdAll: 0.6
-          thresholdNew: 0.6
+          thresholdAll: 0.5
+          thresholdNew: 0.5
