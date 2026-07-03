@@ -41,6 +41,7 @@ on:
 permissions:
   contents:  read        # default for all jobs
   packages:  read
+  pull-requests: write   # coverage bot
 
 # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued
 concurrency:
@@ -255,7 +256,13 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          reggie --dry-run regressioncheck/${{ matrix.check }}
+          coverage run --parallel-mode --source=reggie -m reggie.reggie --dry-run regressioncheck/${{ matrix.check }}
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data-${{ matrix.check }}
+          path: .coverage.*
+          include-hidden-files: true
 
   Analyze_checks_hdf5_tools:
     # these analyzes need the hdf5 toolset
@@ -279,7 +286,13 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          reggie --dry-run regressioncheck/${{ matrix.check }}
+          coverage run --parallel-mode --source=reggie -m reggie.reggie --dry-run regressioncheck/${{ matrix.check }}
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data-${{ matrix.check }}
+          path: .coverage.*
+          include-hidden-files: true
 
   Analyze_checks_piclas_pre_build:
     # these analyzes need the pre-build piclas executable
@@ -314,7 +327,13 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          reggie ${{ matrix.check }} ${{ matrix.extra_args }}
+          coverage run --parallel-mode --source=reggie -m reggie.reggie ${{ matrix.check }} ${{ matrix.extra_args }}
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data-piclas-pre-build
+          path: .coverage.*
+          include-hidden-files: true
 
   Analyze_checks_piclas_reggie_build:
     # these analyzes need the piclas repo and build the executable within reggie
@@ -344,4 +363,64 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          reggie ${{ matrix.check }} ${{ matrix.extra_args }}
+          coverage run --parallel-mode --source=reggie -m reggie.reggie ${{ matrix.check }} ${{ matrix.extra_args }}
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data-piclas-reggie-build
+          path: .coverage.*
+          include-hidden-files: true
+
+# ----------------------------------------------------------------------------------------------------------------------------------------------------
+# Coverage
+# ----------------------------------------------------------------------------------------------------------------------------------------------------
+  coverage:
+    # combine the coverage data collected by all regressioncheck jobs into a single report
+    name: Coverage
+    runs-on: ubuntu-latest
+    needs: [Analyze_checks_single, Analyze_checks_hdf5_tools, Analyze_checks_piclas_pre_build, Analyze_checks_piclas_reggie_build]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/cache@v5
+        with:
+          path: .venv
+          key: venv-${{ hashFiles('pyproject.toml') }}
+      - name: Download coverage data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-data-*
+          merge-multiple: true
+      - name: Combine coverage data and generate report
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          coverage --version
+          coverage combine
+          coverage report --show-missing
+          coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+          coverage xml  -o coverage-report/coverage.xml
+          coverage html -d coverage-report/html
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: reggie-coverage-report
+          path: coverage-report/
+
+  coverage-bot:
+    # post the coverage report as a bot comment on the pull request
+    if: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' }}
+    runs-on: ubuntu-latest
+    needs: [coverage]
+    steps:
+      - name: Download coverage report
+        uses: actions/download-artifact@v4
+        with:
+          name: reggie-coverage-report
+      - name: Report coverage
+        uses: orgoro/coverage@v3.3
+        with:
+          coverageFile: coverage.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # OPTIMIZE: raise the thresholds once the coverage of the regressionchecks improves
+          thresholdAll: 0.6
+          thresholdNew: 0.6
