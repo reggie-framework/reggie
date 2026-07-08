@@ -83,7 +83,7 @@ except AttributeError:
 
 class DataNotFoundError(Exception):
     """Raised when data was not read-in correctly (from .vtu or .h5)"""
-    pass
+
 
 def displayTable(mylist, nVar, nRuns):
     # mylist = [ [1 2 3] [1 2 3] [1 2 3] [1 2 3] ] example with 4 nVar and 3 nRuns
@@ -1512,10 +1512,7 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                                     dim1 = self.get_variable_dimension(f1, var_attribute_loc, var_name_loc)
                                 except DataNotFoundError as e:
                                     s = tools.red(str(e))
-                                    print(s)
-                                    run.analyze_results.append(s)
-                                    run.analyze_successful = False
-                                    Analyze.total_errors += 1
+                                    Analyze.fail_run(run, s, do_print=True)
                                     continue
                                 finally:
                                     f1.close()
@@ -1524,10 +1521,7 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                                     dim2 = self.get_variable_dimension(f2, var_attribute_loc, var_name_loc)
                                 except DataNotFoundError as e:
                                     s = tools.red(str(e))
-                                    print(s)
-                                    run.analyze_results.append(s)
-                                    run.analyze_successful = False
-                                    Analyze.total_errors += 1
+                                    Analyze.fail_run(run, s, do_print=True)
                                     continue
                                 finally:
                                     f2.close()
@@ -1989,19 +1983,13 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                         vtu_data, array_names_dims = self.read_in_vtk_data(reader, path, array_name_loc_file)
                     except DataNotFoundError as e:
                         s = tools.red(str(e))
-                        print(s)
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s, do_print=True)
                         continue
                     try:
                         vtu_data_ref, array_names_dims_ref = self.read_in_vtk_data(reader_ref, path_ref_target, array_name_loc_ref)
                     except DataNotFoundError as e:
                         s = tools.red(str(e))
-                        print(s)
-                        run.analyze_results.append(s)
-                        run.analyze_successful = False
-                        Analyze.total_errors += 1
+                        Analyze.fail_run(run, s, do_print=True)
                         continue
                     try:
                         # Check if array_name_loc has not been set (because no name was stated in the analyze.ini file)
