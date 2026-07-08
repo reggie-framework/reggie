@@ -15,3 +15,5 @@ config-reggie.json
 tags
 .tags
 dist/
+.coverage*
+coverage*

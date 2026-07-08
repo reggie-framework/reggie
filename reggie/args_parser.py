@@ -127,6 +127,7 @@ def getArgsAndBuilds():
     parser.add_argument('--gcovr_extra'      , help='Extra arguments (string) to pass to gcovr (e.g. --exclude-lines-by-pattern <pattern> or --include-internal-functions). Additional arguments can be obtained from the gcovr documentation.', default=None) # noqa: E501
     parser.add_argument('--meshesdir'        , help='Deactivate re-using meshes created with hopr/pyhope as external. With this flag all externals are pre-executed before each run, even if they create the same mesh all the time. Otherwise hopr/pyhope is only run once for each example and meshes are stored in separate directory to use with symbolic links.', action='store_false') # noqa: E501
     parser.add_argument('--gitlab-ci'        , help='Activated automatically when running gitlab-ci pipelines via environment variable REGGIE_GITLAB_CI to print Running [...] + Successful/Failed [x.xx sec] in a single line instead of breaking the last part into a new line.', action='store_true')  # noqa: E501
+    parser.add_argument('--dry-run'          , help='Skip building and execution, only perform analyze functions on existing output directories.', action='store_true', dest='dry_run')
     # fmt: on
     # parser.set_defaults(carryon=False)
     # parser.set_defaults(dummy=False)
@@ -185,7 +186,7 @@ def getArgsAndBuilds():
         if args.basedir is None:  # start with current working directory
             args.basedir = os.getcwd()
         try:
-            if args.exe is None:  # only get basedir if no executable is supplied
+            if args.exe is None and not args.dry_run:  # only get basedir if no executable is supplied and not in dry-run mode
                 args.basedir = tools.find_basedir(args.basedir)
         except Exception:
             print(tools.red("Basedir (containing 'CMakeLists.txt') not found!\nEither specify the basedir on the command line or execute reggie within a project with a 'CMakeLists.txt'."))
@@ -209,13 +210,13 @@ def getArgsAndBuilds():
                 exit(1)
 
     # delete the building directory when [carryon = False] and [run = False] before getBuilds is called
-    if not args.carryon and not args.run:
+    if not args.carryon and not args.run and not args.dry_run:
         tools.remove_folder(OutputDirectory.output_dir)
 
     # get builds from checks directory if no executable is supplied
     if args.exe is None:  # if not exe is supplied, get builds
-        # read build combinations from checks/XX/builds.ini
-        builds = check.getBuilds(args.basedir, args.check, args.compiletype, args.singledir, args.coverage)
+        # read build combinations from checks/XX/builds.ini, or fall back to a dummy standalone when dry-running a direct example directory
+        builds = [check.Standalone('__dry_run__', args.check)] if args.dry_run else check.getBuilds(args.basedir, args.check, args.compiletype, args.singledir, args.coverage)
     else:
         if not os.path.exists(args.exe):  # check if executable exists
             print(tools.red(f"No executable found under '{args.exe}'"))
@@ -225,6 +226,9 @@ def getArgsAndBuilds():
             args.noMPIautomatic = check.StandaloneAutomaticMPIDetection(args.exe)  # Check possibly existing userblock.txt to find out if the executable was compiled with MPI=ON or MPI=OFF
             args.run = True  # set 'run-mode' do not compile the code
             args.basedir = None  # since code will not be compiled, the basedir is not required
+
+    if args.dry_run:
+        args.run = True  # skip building in dry-run mode
 
     # Try to detect MPICH
     args.detectedMPICH = False
@@ -250,7 +254,9 @@ def getArgsAndBuilds():
     if args.run:
         print("args.run -> skip building")
         # in 'run-mode' remove all build from list of builds if their binaries do not exist (build.binary_exists() == False)
-        builds = [build for build in builds if build.binary_exists()]
+        # skip binary existence check for dry-run since no binary is needed
+        if not args.dry_run:
+            builds = [build for build in builds if build.binary_exists()]
 
     if len(builds) == 0:
         print(tools.red("List of 'builds' is empty! Maybe switch off '--run'."))

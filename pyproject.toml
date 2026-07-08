@@ -57,6 +57,7 @@ indent-width = 4
 force-exclude = true
 exclude = [
     "reggie/__init__.py",
+    "regressioncheck",
     # Exclude a variety of commonly ignored directories.
     ".git",
     ".pyenv",
@@ -131,3 +132,9 @@ paths = [
 # OPTIMIZE: might reduce percentage
 min_confidence = 70
 sort_by_size = true
+
+[tool.coverage.run]
+source = ["reggie"]
+omit = [
+    "reggie/repas/*",     # repas currently not in regressionchecks, therefore not included in coverage statistics
+]

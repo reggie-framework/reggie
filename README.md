@@ -10,6 +10,7 @@ Reggie is a regression testing framework for scientific simulation codes. It hel
   - [Installation](#installation)
   - [Ruff linter and formatter](#ruff-linter-and-formatter)
   - [Code Coverage](#code-coverage)
+  - [Continuous Integration (CI)](#continuous-integration-ci)
   - [Overview](#overview)
   - [Code hierarchy and required *.ini* files](#code-hierarchy-and-required-ini-files)
 - [Analyze routines: analyze.ini](#analyze-routines-for-analyzeini)
@@ -179,6 +180,42 @@ The report can be inspected using the `Coverage/reggie/index.html` file.
 firefox ./Coverage/reggie/htmlcov/index.html
 ```
 
+## Continuous Integration (CI)
+
+The GitHub Actions workflow [.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every push to `main` and on every pull request.
+It can also be started manually from the Actions tab (workflow_dispatch), where the piclas testcases can be selected via the inputs `testcase_dir_build`, `testcase_dir` and `testcase`.
+
+The jobs depend on each other as follows:
+
+### Setup and caching
+
+- **Setup venv** creates a virtual environment with an editable install of reggie plus additional tools (currently linter and pyhope). The `.venv` directory is cached with a key derived from `pyproject.toml`, so it is only rebuilt when the dependencies change. All downstream jobs restore this cache instead of reinstalling.
+- **Clone piclas** performs a shallow clone of the [piclas](https://github.com/piclas-framework/piclas) repository. The cache key is the upstream HEAD commit, so the clone (and every build based on it) is only redone when piclas is updated.
+- **Build piclas** compiles the piclas executable for the selected testcase. The build directory is cached with the piclas commit and the testcase in the key (since the build could change for different testcases). Download and build are separate jobs so that this build runs in parallel to the regressioncheck that builds piclas within reggie.
+
+### Linting and compatibility
+
+- **Lint / ruff, ty, vulture** run the linter, the type checker and the dead-code checker on the `reggie` package (configuration in `pyproject.toml`).
+- **Compatibility** installs reggie on all supported Python versions (3.10 - 3.14) and executes `reggie --help` to catch version-specific breakage.
+
+### Regressionchecks
+
+The regressioncheck jobs execute reggie on the checks in the [regressioncheck](regressioncheck) directory:
+
+- **Regressioncheck** runs one job per `CHE_Analyze_*` check in `--dry-run` mode, i.e. without executing an executable: the analyze routines work on the reference output files stored in the repository.
+- **Regressioncheck (hdf5 tools)** does the same for checks that additionally needs the `hdf5-tools` package and is therefore separate.
+- **Regressioncheck (with piclas pre-build)** runs a real piclas testcase with the pre-compiled executable from **build_piclas**.
+- **Regressioncheck (with piclas builds)** lets reggie compile piclas itself, including the gcovr code coverage option (`-o 12`), and then runs the testcase.
+
+### Coverage
+
+The coverage of the reggie tool itself is collected while the regressionchecks run:
+
+1. Every regressioncheck job wraps the reggie call with the [Python coverage tool](https://coverage.readthedocs.io/): `coverage run --parallel-mode -m reggie.reggie ...`. The configuration (measured source and excluded files) is defined in the `[tool.coverage.run]` section of `pyproject.toml`.
+2. Each job uploads its `.coverage.*` data file as an artifact (`coverage-data-*`).
+3. The **Coverage** job downloads all data files, merges them with `coverage combine` and prints the report to the job log and to the workflow run's summary page (`$GITHUB_STEP_SUMMARY`). It also generates an XML and a browsable HTML report, which are uploaded as the `reggie-coverage-report` artifact.
+4. The **Coverage bot** job posts the result of `coverage.xml` as a comment on pull requests targeting `main` (using [orgoro/coverage](https://github.com/orgoro/coverage)), including the coverage of the lines changed in the pull request. The thresholds for overall and new code are configured in the workflow and fail the job when the coverage drops below them.
+
 ## Code hierarchy and required *.ini* files
 ```
 gitlab-ci.py
@@ -215,6 +252,11 @@ gitlab-ci.py
   - [Code Coverage](#code-coverage)
     - [gcovr: Coverage of the .f90 code](#gcovr-coverage-of-the-f90-code)
     - [Python coverage.py package: Coverage of the reggie code itself](#python-coveragepy-package-coverage-of-the-reggie-code-itself)
+  - [Continuous Integration (CI)](#continuous-integration-ci)
+    - [Setup and caching](#setup-and-caching)
+    - [Linting and compatibility](#linting-and-compatibility)
+    - [Regressionchecks](#regressionchecks)
+    - [Coverage](#coverage)
   - [Code hierarchy and required *.ini* files](#code-hierarchy-and-required-ini-files)
 - [Analyze routines for "analyze.ini"](#analyze-routines-for-analyzeini)
   - [Overview](#overview)
