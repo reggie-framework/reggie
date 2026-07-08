@@ -5,6 +5,7 @@ version = "1.0.0"
 description = "A regression testing framework for scientific simulation codes"
 license = "GPL-3.0-only"
 readme = "README.md"
+requires-python = ">=3.10"
 authors = [
     {name = "Stephen Copplestone", email = "copplestone@boltzplatz.eu"},
 ]
