@@ -423,5 +423,5 @@ jobs:
           coverageFile: coverage.xml
           token: ${{ secrets.GITHUB_TOKEN }}
           # OPTIMIZE: raise the thresholds once the coverage of the regressionchecks improves
-          thresholdAll: 0.5
-          thresholdNew: 0.5
+          thresholdAll: 0.55
+          thresholdNew: 0.85
