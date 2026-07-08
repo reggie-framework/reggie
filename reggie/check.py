@@ -1331,14 +1331,6 @@ class PerformCheck:
                                 s = tools.red(f'command_line.ini: cannot find file=[{self.database_path}]')
                                 print(s)
                                 sys.exit(1)
-                        # CVAE scattering linking
-                        self.cvae_scattering_cvae = self.command_line.parameters.get('cvae_scattering', None)
-                        if self.cvae_scattering_cvae is not None:
-                            self.cvae_scattering_cvae = os.path.abspath(os.path.join(example.source_directory, self.cvae_scattering_cvae))
-                            if not os.path.exists(self.cvae_scattering_cvae):
-                                s = tools.red(f'command_line.ini: cannot find file=[{self.cvae_scattering_cvae}]')
-                                print(s)
-                                sys.exit(1)
 
                         # Get the index of the restart file to append to the analyze
                         iRestartFile = example.restart_file_list.index(self.command_line.parameters.get('restart_file', None)) if example.restart_file_list is not None else None
@@ -1533,11 +1525,6 @@ class PerformCheck:
                 _, tail = os.path.split(self.database_path)
                 os.symlink(self.database_path, os.path.join(run.target_directory, tail))
                 print(tools.indent(tools.green(f'Preprocessing: Linked database [{self.database_path}] to [{run.target_directory}] ... '), 2))
-            # CVAE scattering linking
-            if self.cvae_scattering_cvae is not None and os.path.exists(run.target_directory):
-                _, tail = os.path.split(self.cvae_scattering_cvae)
-                os.symlink(self.cvae_scattering_cvae, os.path.join(run.target_directory, tail))
-                print(tools.indent(tools.green(f'Preprocessing: Linked CVAE scattering cvae file [{self.cvae_scattering_cvae}] to [{run.target_directory}] ... '), 2))
 
             # 4.1 read the external options in 'externals.ini' within each example directory (e.g. eos, hopr, posti)
             #     distinguish between pre- and post processing
