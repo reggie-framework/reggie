@@ -1,7 +1,7 @@
 # pyproject.toml compatible with Poetry (version 2.0+)
 [project]
 name = "reggie-framework"
-version = "1.0.0"
+version = "1.1.0"
 description = "A regression testing framework for scientific simulation codes"
 license = "GPL-3.0-only"
 readme = "README.md"
