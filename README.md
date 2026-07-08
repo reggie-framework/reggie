@@ -187,17 +187,6 @@ It can also be started manually from the Actions tab (workflow_dispatch), where 
 
 The jobs depend on each other as follows:
 
-```mermaid
-flowchart LR
-    venv[Setup venv] --> ruff[Lint / ruff] & ty[Lint / ty] & vulture[Lint / vulture] --> compat[Compatibility / Python 3.10-3.14]
-    venv --> single[Regressioncheck]
-    venv --> hdf5[Regressioncheck hdf5 tools]
-    download[Clone piclas] --> build[Build piclas]
-    venv & build --> prebuild[Regressioncheck piclas pre-build]
-    venv & download --> reggiebuild[Regressioncheck piclas builds]
-    single & hdf5 & prebuild & reggiebuild --> coverage[Coverage] --> bot[Coverage bot]
-```
-
 ### Setup and caching
 
 - **Setup venv** creates a virtual environment with an editable install of reggie plus additional tools (currently linter and pyhope). The `.venv` directory is cached with a key derived from `pyproject.toml`, so it is only rebuilt when the dependencies change. All downstream jobs restore this cache instead of reinstalling.
