@@ -81,6 +81,9 @@ except AttributeError:
         def __eq__(self, other):
             return self.__dict__ == other.__dict__
 
+class DataNotFoundError(Exception):
+    """Raised when data was not read-in correctly (from .vtu or .h5)"""
+    pass
 
 def displayTable(mylist, nVar, nRuns):
     # mylist = [ [1 2 3] [1 2 3] [1 2 3] [1 2 3] ] example with 4 nVar and 3 nRuns
@@ -1324,8 +1327,8 @@ class Analyze_h5diff(Analyze, ExternalCommand):
             # check if variable name exists (case insensitive)
             if variable_name.lower() in variable_names:
                 return list(variable_names).index(variable_name.lower())
-            return tools.red(f"Variable name '{variable_name}' not found in dimension names.")
-        return tools.red(f"No '{variable_attribute}' attribute found in file '{f}'.")
+            raise DataNotFoundError(f"Variable name '{variable_name}' not found in dimension names.")
+        raise DataNotFoundError(f"No '{variable_attribute}' attribute found in file '{f}'.")
 
     def perform(self, runs):
         # Check if this analysis can be performed: h5py must be imported
@@ -1643,23 +1646,29 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                             if compare_single_variable:
                                 # Open datasets again to get dimension sizes
                                 f1 = h5py.File(path, 'r')
-                                dim1 = self.get_variable_dimension(f1, var_attribute_loc, var_name_loc)
-                                f1.close()
-                                if isinstance(dim1, str):
-                                    print(dim1)
-                                    run.analyze_results.append(dim1)
+                                try:
+                                    dim1 = self.get_variable_dimension(f1, var_attribute_loc, var_name_loc)
+                                except DataNotFoundError as e:
+                                    s = tools.red(str(e))
+                                    print(s)
+                                    run.analyze_results.append(s)
                                     run.analyze_successful = False
                                     Analyze.total_errors += 1
                                     continue
+                                finally:
+                                    f1.close()
                                 f2 = h5py.File(path_ref_target, 'r')
-                                dim2 = self.get_variable_dimension(f2, var_attribute_loc, var_name_loc)
-                                f2.close()
-                                if isinstance(dim2, str):
-                                    print(dim2)
-                                    run.analyze_results.append(dim2)
+                                try:
+                                    dim2 = self.get_variable_dimension(f2, var_attribute_loc, var_name_loc)
+                                except DataNotFoundError as e:
+                                    s = tools.red(str(e))
+                                    print(s)
+                                    run.analyze_results.append(s)
                                     run.analyze_successful = False
                                     Analyze.total_errors += 1
                                     continue
+                                finally:
+                                    f2.close()
                                 # Extract slices along the specified dimension from arrays b1 and b2 which are already reshaped/flipped so they have the same dimensions
                                 # if arrays were flipped dim1 and dim2 correspond to rows
                                 if flip_loc:
@@ -2034,7 +2043,7 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
 
         # single_array_name defaults to None which should check all arrays and data is empty if no array was matched
         if single_array_name is not None and not data:
-            return tools.red(f'Array {single_array_name} not found in vtu file {path}'), None
+            raise DataNotFoundError(f'Array {single_array_name} not found in vtu file {path}')
         # Convert the list to a single numpy array (concatenated along columns) for each data type (point or cell data respectively)
         numpy_data = np.hstack(data) if data else np.array([])
         return numpy_data, array_names_dims
@@ -2167,18 +2176,21 @@ class Analyze_vtudiff(Analyze, ExternalCommand):
                     else:
                         array_name_loc_file = array_name_loc
                         array_name_loc_ref = array_name_loc
-                    vtu_data, array_names_dims = self.read_in_vtk_data(reader, path, array_name_loc_file)
-                    # vtu_data (and vtu_data_ref) contain the error string if method fails
-                    if isinstance(vtu_data, str):
-                        print(vtu_data)
-                        run.analyze_results.append(vtu_data)
+                    try:
+                        vtu_data, array_names_dims = self.read_in_vtk_data(reader, path, array_name_loc_file)
+                    except DataNotFoundError as e:
+                        s = tools.red(str(e))
+                        print(s)
+                        run.analyze_results.append(s)
                         run.analyze_successful = False
                         Analyze.total_errors += 1
                         continue
-                    vtu_data_ref, array_names_dims_ref = self.read_in_vtk_data(reader_ref, path_ref_target, array_name_loc_ref)
-                    if isinstance(vtu_data_ref, str):
-                        print(vtu_data_ref)
-                        run.analyze_results.append(vtu_data_ref)
+                    try:
+                        vtu_data_ref, array_names_dims_ref = self.read_in_vtk_data(reader_ref, path_ref_target, array_name_loc_ref)
+                    except DataNotFoundError as e:
+                        s = tools.red(str(e))
+                        print(s)
+                        run.analyze_results.append(s)
                         run.analyze_successful = False
                         Analyze.total_errors += 1
                         continue
