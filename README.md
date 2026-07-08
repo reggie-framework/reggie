@@ -207,14 +207,14 @@ gitlab-ci.py
 ## Overview
 
 - [Table of Contents](#table-of-contents)
-- [Reggie](#reggie20)
+- [Reggie](#reggie)
   - [Installation](#installation)
   - [Ruff linter and formatter](#ruff-linter-and-formatter)
     - [Pre-commit Integration](#pre-commit-integration)
     - [Ruff configuration](#ruff-configuration)
   - [Code Coverage](#code-coverage)
     - [gcovr: Coverage of the .f90 code](#gcovr-coverage-of-the-f90-code)
-    - [Python coverage.py package: Coverage of the reggie code itself](#python-coveragepy-package-coverage-of-the-reggie20-code-itself)
+    - [Python coverage.py package: Coverage of the reggie code itself](#python-coveragepy-package-coverage-of-the-reggie-code-itself)
   - [Code hierarchy and required *.ini* files](#code-hierarchy-and-required-ini-files)
 - [Analyze routines for "analyze.ini"](#analyze-routines-for-analyzeini)
   - [Overview](#overview)
@@ -822,7 +822,6 @@ parameters used in `command_line.ini` and example arguments
 |  additional info  | cmd\_suffix   | DSMC.ini                   | None               | additional information that is appended to the command line argument that is used for running a program |
 | restart from file | restart\_file | My_State_000.0000005123.h5 | None               | supply the name of a state file from which all simulations are to be re-started                         |
 | link to database  | database      | SpeciesDatabase.h5         | None               | supply the name of a database file and its relative path (e.g. ../../../SpeciesDatabase.h5)             |
-link to cVAE scattering model  | cvae_scattering      |cVAE_VLEO_Al2O3.h5         | None               | supply the name of a cVAE file and its relative path (e.g. ../../../cVAE_VLEO_Al2O3.h5)             |
 
 
 ### Example

@@ -267,3 +267,12 @@ def exclude_comments_from_line(line):
             line = line + sym + line_split[1]  # if a variable start with a comment symbol, keep it
             firstEquationMark = False  # Deactivate
     return line
+
+def normalize_tolerance_type(value, context=""):
+    """Normalize user-supplied tolerance type strings to 'absolute' or 'relative'."""
+    if value in ('absolute', 'delta', '--delta'):
+        return 'absolute'
+    if value in ('relative', '--relative'):
+        return 'relative'
+    suffix = f" ({context})" if context else ""
+    raise Exception(red(f"Tolerance type '{value}' not accepted{suffix}. Use 'absolute' or 'relative'."))
