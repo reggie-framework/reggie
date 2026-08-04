@@ -110,10 +110,10 @@ def SummaryOfErrors(builds, args):
                             try:
                                 cores = command_line.parameters.get('MPI', '-')
                                 if int(cores) > 1:
-                                    run.output_strings['MPI'] = '{} (changed from {})'.format(1, run.output_strings['MPI'])
+                                    run.output_strings['MPI'] = f'{1} (changed from {run.output_strings["MPI"]})'
                                     run.outputMPIyellow = True
                             except Exception:
-                                run.output_strings['MPI'] = '{} (changed from {})'.format(1, run.output_strings['MPI'])
+                                run.output_strings['MPI'] = f'{1} (changed from {run.output_strings["MPI"]})'
                                 run.outputMPIyellow = True
                     except Exception:
                         pass
@@ -122,12 +122,20 @@ def SummaryOfErrors(builds, args):
                     try:
                         try:
                             cores = command_line.parameters.get('MPI', '-')
+                            # Check if the field 'MPI' can be converted to an integer and compare with MaxCores (usually MPICH is
+                            # limited to the actual number of pyhsical processors)
                             if int(cores) > args.MaxCores and args.MaxCores > 0:
-                                run.output_strings['MPI'] = '{} (changed from {})'.format(args.MaxCores, run.output_strings['MPI'])
+                                run.output_strings['MPI'] = f'{args.MaxCores} (changed from {run.output_strings["MPI"]})'
                                 run.outputMPIyellow = True
                         except Exception:
-                            run.output_strings['MPI'] = '{} (changed from {})'.format(args.MaxCores, run.output_strings['MPI'])
-                            run.outputMPIyellow = True
+                            # Check if the keyword 'reduced' is in the field 'MPI', which implies that the number of cores was
+                            # reduced due to nProcs > nElems
+                            if 'reduced' in run.output_strings["MPI"]:
+                                run.output_strings['MPI'] = f'{run.output_strings["MPI"]}'
+                                run.outputMPIyellow = True
+                            else:
+                                run.output_strings['MPI'] = f'{args.MaxCores} (changed from {run.output_strings["MPI"]})'
+                                run.outputMPIyellow = True
                     except Exception:
                         pass
 
