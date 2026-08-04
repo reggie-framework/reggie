@@ -771,11 +771,12 @@ class Run(OutputDirectory, ExternalCommand):
                         nElems = int(nElems)
 
                     # Limit the number of mpithreads
-                    if MPIthreads:
-                        if int(MPIthreads) > nElems:
-                            s = tools.yellow(f"Automatically reducing number of MPI threads from {int(MPIthreads)} to {nElems} (number of elements in mesh)!")
-                            print(tools.indent(s, 2))
-                        MPIthreads = str(min(nElems, int(MPIthreads)))
+                    if MPIthreads and int(MPIthreads) > nElems:
+                        s = tools.yellow(f"Automatically reducing number of MPI threads from {int(MPIthreads)} to {nElems} (number of elements in mesh)!")
+                        print(tools.indent(s, 2))
+                        MPIthreadsNew = str(min(nElems, int(MPIthreads)))
+                        command_line.parameters['MPI'] = f'{MPIthreadsNew} (reduced from {MPIthreads})'
+                        MPIthreads = MPIthreadsNew
             except Exception as e:
                 s = (
                     "Failed to extract the number of elements ('nElems') from the mesh file to automatically limit MPI threads."
