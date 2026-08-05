@@ -85,6 +85,41 @@ def SummaryOfErrors(builds, args):
                     run.outputMPIyellow = False
                     # fmt: on
 
+                    # Check if number of MPI threads was reduced (due to number of elems < command_lini.ini MPI threads)
+                    MPIThreadsMesh = command_line.parameters.get('MPIThreadsMesh')
+                    if MPIThreadsMesh:
+                        run.output_strings['MPI'] = f'{MPIThreadsMesh} (changed from {run.output_strings["MPI"]})'
+                        run.outputMPIyellow = True
+
+                    # Check if MaxCores was set and more than the number of physical cores
+                    try:
+                        try:
+                            cores = command_line.parameters.get('MPI', '-')
+                            # Check if the field 'MPI' can be converted to an integer and compare with MaxCores (usually MPICH is
+                            # limited to the actual number of pyhsical processors)
+                            if int(cores) > args.MaxCores and args.MaxCores > 0 and int(MPIThreadsMesh) > args.MaxCores:
+                                run.output_strings['MPI'] = f'{args.MaxCores} (changed from {run.output_strings["MPI"]})'
+                                run.outputMPIyellow = True
+                        except Exception:
+                            run.output_strings['MPI'] = f'{args.MaxCores} (changed from {run.output_strings["MPI"]})'
+                            run.outputMPIyellow = True
+                    except Exception:
+                        pass
+
+                    # Check if command_line.ini has MPI>1 but the binary is built with MPI=OFF and therefore executed in single mode
+                    try:
+                        if build.MPIrunDeactivated:
+                            try:
+                                cores = command_line.parameters.get('MPI', '-')
+                                if int(cores) > 1:
+                                    run.output_strings['MPI'] = f'{1} (changed from {run.output_strings["MPI"]})'
+                                    run.outputMPIyellow = True
+                            except Exception:
+                                run.output_strings['MPI'] = f'{1} (changed from {run.output_strings["MPI"]})'
+                                run.outputMPIyellow = True
+                    except Exception:
+                        pass
+
                     # get the max lens before adding ansi color escape codes (which changes the string length)
                     for key in run.output_strings:
                         max_lens[key] = max(max_lens[key], len(run.output_strings[key]))  # set max column widths for summary table
@@ -102,40 +137,6 @@ def SummaryOfErrors(builds, args):
                                 pathColoured += delimiter + f'{iDirName}'
                             delimiter = '/'
                         run.path_coloured = pathColoured
-                    except Exception:
-                        pass
-                    # Check if command_line.ini has MPI>1 but the binary is built with MPI=OFF and therefore executed in single mode
-                    try:
-                        if build.MPIrunDeactivated:
-                            try:
-                                cores = command_line.parameters.get('MPI', '-')
-                                if int(cores) > 1:
-                                    run.output_strings['MPI'] = f'{1} (changed from {run.output_strings["MPI"]})'
-                                    run.outputMPIyellow = True
-                            except Exception:
-                                run.output_strings['MPI'] = f'{1} (changed from {run.output_strings["MPI"]})'
-                                run.outputMPIyellow = True
-                    except Exception:
-                        pass
-
-                    # Check if MaxCores was set and more than the number of physical cores
-                    try:
-                        try:
-                            cores = command_line.parameters.get('MPI', '-')
-                            # Check if the field 'MPI' can be converted to an integer and compare with MaxCores (usually MPICH is
-                            # limited to the actual number of pyhsical processors)
-                            if int(cores) > args.MaxCores and args.MaxCores > 0:
-                                run.output_strings['MPI'] = f'{args.MaxCores} (changed from {run.output_strings["MPI"]})'
-                                run.outputMPIyellow = True
-                        except Exception:
-                            # Check if the keyword 'reduced' is in the field 'MPI', which implies that the number of cores was
-                            # reduced due to nProcs > nElems
-                            if 'reduced' in run.output_strings["MPI"]:
-                                run.output_strings['MPI'] = f'{run.output_strings["MPI"]}'
-                                run.outputMPIyellow = True
-                            else:
-                                run.output_strings['MPI'] = f'{args.MaxCores} (changed from {run.output_strings["MPI"]})'
-                                run.outputMPIyellow = True
                     except Exception:
                         pass
 
