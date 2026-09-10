@@ -81,6 +81,7 @@ except AttributeError:
         def __eq__(self, other):
             return self.__dict__ == other.__dict__
 
+
 class DataNotFoundError(Exception):
     """Raised when data was not read-in correctly (from .vtu or .h5)"""
 
@@ -487,9 +488,9 @@ class Analyze:  # main class from which all analyze functions are derived
     def fail_run(cls, run, s, do_print=True):
         if do_print:
             print(s)
-        run.analyze_results.append(s)       # append info for summary of errors
-        run.analyze_successful = False      # set analyzes to fail
-        cls.total_errors += 1               # increment errror counter
+        run.analyze_results.append(s)  # append info for summary of errors
+        run.analyze_successful = False  # set analyzes to fail
+        cls.total_errors += 1  # increment errror counter
 
     def _expand_prms(self, flag_value, flag_name):
         """Parse a one_per_run flag and normalize self.prms into equal-length lists.
@@ -2387,7 +2388,7 @@ class Analyze_check_distribution(Analyze):
 
         def flux_raw(theta):
             c = np.cos(theta)
-            return A * c ** n - B * c ** m
+            return A * c**n - B * c**m
 
         def cdf(theta):
             c = np.cos(theta)
@@ -2418,17 +2419,17 @@ class Analyze_check_distribution(Analyze):
 
         # Create dictionary for all keys/parameters and insert a list for every value/option
         self.prms = {
-            "file":             CheckDistribution.file,
-            "data_set":         CheckDistribution.data_set,
-            "normal":           CheckDistribution.normal,
+            "file": CheckDistribution.file,
+            "data_set": CheckDistribution.data_set,
+            "normal": CheckDistribution.normal,
             "velocity_columns": CheckDistribution.velocity_columns,
-            "tolerance":        CheckDistribution.tolerance,
-            "bins":             CheckDistribution.bins,
-            "double":           CheckDistribution.double,
-            "exponent":         CheckDistribution.exponent,
-            "A":                CheckDistribution.A,
-            "B":                CheckDistribution.B,
-            "exponent2":        CheckDistribution.exponent2,
+            "tolerance": CheckDistribution.tolerance,
+            "bins": CheckDistribution.bins,
+            "double": CheckDistribution.double,
+            "exponent": CheckDistribution.exponent,
+            "A": CheckDistribution.A,
+            "B": CheckDistribution.B,
+            "exponent2": CheckDistribution.exponent2,
         }
 
         # expand options to allows multiple analyzes with only one analyze.ini
@@ -2454,7 +2455,11 @@ class Analyze_check_distribution(Analyze):
             if double_loc:
                 # double cosine distribution A*cos^n(theta) - B*cos^m(theta)
                 if None in (self.prms["A"][check], self.prms["B"][check], self.prms["exponent"][check], self.prms["exponent2"][check]):
-                    raise Exception(tools.red("initialization of check_distribution failed. check_distribution_double=T requires check_distribution_A, check_distribution_B, check_distribution_exponent and check_distribution_exponent2."))
+                    raise Exception(
+                        tools.red(
+                            "initialization of check_distribution failed. check_distribution_double=T requires check_distribution_A, check_distribution_B, check_distribution_exponent and check_distribution_exponent2."
+                        )
+                    )
                 try:
                     self.dists.append(self.cosine_double_dist(float(self.prms["A"][check]), float(self.prms["B"][check]), float(self.prms["exponent"][check]), float(self.prms["exponent2"][check])))
                 except ValueError as e:
@@ -2491,7 +2496,7 @@ class Analyze_check_distribution(Analyze):
         """
         file_loc = self.prms["file"][check]
         bins_loc = self.prms["bins"][check]
-        dist     = self.dists[check]
+        dist = self.dists[check]
 
         prefix = os.path.join(run.target_directory, os.path.splitext(os.path.basename(file_loc))[0])
         if self.nChecks > 1:
@@ -2606,11 +2611,11 @@ class Analyze_check_distribution(Analyze):
             checks = ([iRun] if self.nChecks > 1 else [0]) if self.one_check_per_run else range(self.nChecks)
             # 1.1   iterate over all checks
             for check in checks:
-                file_loc             = self.prms["file"][check]
-                data_set_loc         = self.prms["data_set"][check]
+                file_loc = self.prms["file"][check]
+                data_set_loc = self.prms["data_set"][check]
                 velocity_columns_loc = self.prms["velocity_columns"][check]
-                tolerance_loc        = self.prms["tolerance"][check]
-                dist                 = self.dists[check]
+                tolerance_loc = self.prms["tolerance"][check]
+                dist = self.dists[check]
 
                 # 1.1.1   Read the hdf5 file
                 path = os.path.join(run.target_directory, file_loc)
@@ -2655,10 +2660,7 @@ class Analyze_check_distribution(Analyze):
 
                 # 1.4   Run the Kolmogorov-Smirnov test against the analytical CDF and compare the p-value with the tolerance
                 res = sp.stats.kstest(theta, dist.cdf)
-                print(tools.indent(tools.blue(f"distribution=[{dist.label}],\n"
-                                              f"N=[{theta.size}],\n"
-                                              f"D=[{res.statistic:.5e}],\n"
-                                              f"p-value=[{res.pvalue:.4e}] (tolerance=[{tolerance_loc:.4e}])"), 2))
+                print(tools.indent(tools.blue(f"distribution=[{dist.label}],\nN=[{theta.size}],\nD=[{res.statistic:.5e}],\np-value=[{res.pvalue:.4e}] (tolerance=[{tolerance_loc:.4e}])"), 2))
 
                 if res.pvalue < tolerance_loc:
                     s = tools.red(
@@ -2918,7 +2920,9 @@ class Analyze_integrate_line(Analyze):
             # 1.3.2 check column numbers
             line_len = len(line) - 1
             if line_len < self.dim1 or line_len < self.dim2:
-                s = tools.red(f"Failed: cannot perform analyze Analyze_integrate_line, because the supplied columns ({self.dim1}:{self.dim2}) exceed the columns ({line_len}) in the data file (the first column starts at 0)")
+                s = tools.red(
+                    f"Failed: cannot perform analyze Analyze_integrate_line, because the supplied columns ({self.dim1}:{self.dim2}) exceed the columns ({line_len}) in the data file (the first column starts at 0)"
+                )
                 Analyze.fail_run(run, s)
                 return
 
