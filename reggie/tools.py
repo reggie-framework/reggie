@@ -230,7 +230,7 @@ def isKeyOf(a, key_IN):
 
 def splitall(path):
     allparts = []
-    while 1:
+    while True:
         parts = os.path.split(path)
         if parts[0] == path:  # sentinel for absolute paths
             allparts.insert(0, parts[0])
