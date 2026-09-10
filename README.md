@@ -64,11 +64,15 @@ All hooks can be tested with pre-commit before commiting your changes with
 ```
 pre-commit run
 ```
-Note that all pre-commit hooks only run on files that have been staged. The pre-commit hooks can be ignored with the additional flag
+Note that all pre-commit hooks only run on files that have been staged.
+To run the hooks on all files, use
+```
+pre-commit run --all-files
+```
+The pre-commit hooks can be ignored with the additional flag
 ```
 --no-verify
 ```
-
 
 When creating a commit:
 1. The linter will display errors immediately

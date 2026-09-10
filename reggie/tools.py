@@ -268,6 +268,7 @@ def exclude_comments_from_line(line):
             firstEquationMark = False  # Deactivate
     return line
 
+
 def normalize_tolerance_type(value, context=""):
     """Normalize user-supplied tolerance type strings to 'absolute' or 'relative'."""
     if value in ('absolute', 'delta', '--delta'):
