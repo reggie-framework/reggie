@@ -192,13 +192,38 @@ jobs:
           vulture --version
           vulture --config pyproject.toml reggie
 
+  gitleaks:
+    name: Lint / gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: j178/prek-action@v3.0.0
+        with:
+          extra-args: --all-files gitleaks
+
+  pre-commit:
+    name: Lint / pre-commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: j178/prek-action@v3.0.0
+        with:
+          extra-args: --all-files check-merge-conflict
+      - uses: j178/prek-action@v3.0.0
+        with:
+          extra-args: --all-files check-symlinks
+      - uses: j178/prek-action@v3.0.0
+        with:
+          extra-args: --all-files trailing-whitespace
+
+
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # Compatibility
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
   compatibility:
     name: Compatibility / Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
-    needs: [ruff, ty, vulture]
+    needs: [ruff, ty, vulture, gitleaks, pre-commit]
     strategy:
       fail-fast: false
       matrix:
