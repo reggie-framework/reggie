@@ -779,10 +779,7 @@ class Run(OutputDirectory, ExternalCommand):
                         # save the number of threads which are actually used separately to keep MPI field untouched
                         command_line.parameters['MPIThreadsMesh'] = MPIthreads
             except Exception as e:
-                s = (
-                    "Failed to automatically limit MPI threads."
-                    f"\nError message: [{e}]\nThe program will continue without limiting MPI threads for this execution."
-                )
+                s = f"Failed to automatically limit MPI threads.\nError message: [{e}]\nThe program will continue without limiting MPI threads for this execution."
                 print(tools.indent(tools.red(s), 2))
 
         # check MPI built binary (only possible for reggie-compiled binaries)
@@ -1563,7 +1560,7 @@ class PerformCheck:
                 print(tools.indent(tools.yellow('dry-run: skipping execution'), 2))
                 # for convergence tests the std.out file needs to be labeled to the corresponding run, e.g. run1 -> std1.out, this gets written to the correct run here
                 stdout_path_numbered = os.path.join(run.target_directory, f'std{RunCount}.out')
-                stdout_path          = os.path.join(run.target_directory, 'std.out')
+                stdout_path = os.path.join(run.target_directory, 'std.out')
                 if os.path.exists(stdout_path_numbered):
                     stdout_path = stdout_path_numbered
                 if os.path.exists(stdout_path):

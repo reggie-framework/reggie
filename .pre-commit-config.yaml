@@ -1,5 +1,7 @@
 # https://pre-commit.com/
-# https://github.com/pre-commit/pre-commitminimum_pre_commit_version: 4.0.1
+# https://github.com/pre-commit/pre-commit
+# https://prek.j178.dev
+minimum_pre_commit_version: 4.5.1
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version
@@ -37,3 +39,23 @@ repos:
         language: system
         pass_filenames: false
         types: [python]
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.2
+    hooks:
+      # Run secrets detection engine
+      - id: gitleaks
+        name: gitleaks   [detect hardcoded secrets]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      # Check for files that contain merge conflict strings
+      - id: check-merge-conflict
+        name: pre-commit [check for merge conflicts]
+      - id: check-symlinks
+        name: pre-commit [check for broken symlinks]
+      - id: trailing-whitespace
+        name: pre-commit [trim trailing whitespace]
+        exclude: \.(msh|patch|h5)$
+        exclude_types: [markdown]

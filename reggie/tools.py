@@ -230,7 +230,7 @@ def isKeyOf(a, key_IN):
 
 def splitall(path):
     allparts = []
-    while 1:
+    while True:
         parts = os.path.split(path)
         if parts[0] == path:  # sentinel for absolute paths
             allparts.insert(0, parts[0])
@@ -267,6 +267,7 @@ def exclude_comments_from_line(line):
             line = line + sym + line_split[1]  # if a variable start with a comment symbol, keep it
             firstEquationMark = False  # Deactivate
     return line
+
 
 def normalize_tolerance_type(value, context=""):
     """Normalize user-supplied tolerance type strings to 'absolute' or 'relative'."""

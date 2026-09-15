@@ -44,31 +44,47 @@ git clone https://github.com/reggie-framework/reggie.git
 cd reggie
 pip install -e .
 ```
-If you want to help develop Reggie, please consider that Reggie uses [pre-commit](https://pre-commit.com/) for maintaining code quality. Pre-commit can be installed with
+If you want to help develop Reggie, please consider that Reggie uses [prek pre-commit](https://prek.j178.dev/quickstart/) for maintaining code quality. Prek can be installed with
 ```
-pre-commit install
+pip install prek
+prek install
 ```
 and will execute the pre-commit hooks automatically.
 ## Ruff linter and formatter
 
 Reggie uses [Ruff](https://docs.astral.sh/ruff/) for code linting and formatting of all .py files to maintain consistent code quality and style. Ruff is a fast Python linter and formatter that combines multiple individual tools like flake8, black, isort, etc.
 
-### Pre-commit Integration
+### Prek pre-commit Integration
 
-Ruff is integrated with [pre-commit](https://pre-commit.com/) to automatically check and format code before each commit. The configuration is defined in `.pre-commit-config.yaml` and includes:
+Ruff is integrated with [prek pre-commit](https://prek.j178.dev/quickstart/) to automatically check and format code before each commit. The configuration is defined in `.pre-commit-config.yaml` and includes:
 
 1. Ruff linter hook
 2. Ruff formatter hook
 
 All hooks can be tested with pre-commit before commiting your changes with
 ```
-pre-commit run
+prek run
 ```
-Note that all pre-commit hooks only run on files that have been staged. The pre-commit hooks can be ignored with the additional flag
+Note that all pre-commit hooks only run on files that have been staged.
+To run the hooks on all files, use
+```
+prek run --all-files
+```
+which should produce the following output
+```
+ruff linter..............................................................Passed
+ruff formatter...........................................................Passed
+vulture dead code........................................................Passed
+ty type checker..........................................................Passed
+gitleaks   [detect hardcoded secrets]....................................Passed
+pre-commit [check for merge conflicts]...................................Passed
+pre-commit [check for broken symlinks]...............(no files to check)Skipped
+pre-commit [trim trailing whitespace]....................................Passed
+```
+The pre-commit hooks can be ignored with the additional flag
 ```
 --no-verify
 ```
-
 
 When creating a commit:
 1. The linter will display errors immediately
