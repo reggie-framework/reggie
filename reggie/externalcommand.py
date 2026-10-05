@@ -18,7 +18,7 @@ import logging
 import threading
 from queue import Queue
 from timeit import default_timer as timer
-from typing import Iterable
+from collections.abc import Iterable
 
 from reggie import tools
 
@@ -89,7 +89,7 @@ class ExternalCommand:
         if isinstance(cmd, str) or not isinstance(cmd, Iterable):
             print(tools.red("cmd must be of type 'list'\ncmd=") + str(cmd) + tools.red(" and type(cmd)="), type(cmd))
             sys.exit(1)
-        self.workingDir = os.path.abspath(self.target_directory)
+        self.workingDir = os.path.abspath(target_directory)
         # ThreadPool creates new Threads called 'Thead-N', if only one Thread is used, it's name is 'MainThread'
         is_parallel = threading.current_thread().name != 'MainThread'
 
@@ -97,10 +97,7 @@ class ExternalCommand:
         start = timer()
 
         # Check if an environment is used and load it into the subprocess if required
-        if environment:
-            environment_arg = {"env": environment}
-        else:
-            environment_arg = {}
+        environment_arg = {"env": environment} if environment else {}
 
         # Replace possible wild chards (*) with the globbed entries because the subprocess.Popen takes "*" literally, except when
         # called with shell=True (which however uses the /bin/sh by default)
@@ -148,12 +145,12 @@ class ExternalCommand:
         self.walltime = end - start
 
         # write std.out and err.out to disk
-        self.stdout_filename = os.path.join(self.target_directory, name + ".out")
+        self.stdout_filename = os.path.join(target_directory, name + ".out")
         with open(self.stdout_filename, 'w', encoding="utf-8") as f:
             f.writelines(self.stdout)
 
         if self.return_code != 0:
-            self.stderr_filename = os.path.join(self.target_directory, name + ".err")
+            self.stderr_filename = os.path.join(target_directory, name + ".err")
             with open(self.stderr_filename, 'w', encoding="utf-8") as f:
                 f.writelines(self.stderr)
         else:
