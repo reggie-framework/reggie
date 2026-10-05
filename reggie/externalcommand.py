@@ -1,5 +1,5 @@
 # ==================================================================================================================================
-# Copyright (c) 2017 - 2018 Stephen Copplestone and Matthias Sonntag
+# Copyright (c) 2017 - 2026 Stephen Copplestone, Matthias Sonntag, and Leon Teichroeb
 #
 # This file is part of reggie (github.com/reggie-framework/reggie). reggie is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3
@@ -16,8 +16,9 @@ import glob
 import subprocess
 import logging
 import threading
-import select
+from queue import Queue
 from timeit import default_timer as timer
+from typing import Iterable
 
 from reggie import tools
 
@@ -55,7 +56,15 @@ class ExternalCommand:
         else:
             self.gitlab_ci = False
 
-    def execute_cmd(self, cmd, target_directory, name="std", string_info=None, environment=None, displayOnFailure=True):
+    @staticmethod
+    def _pump(pipe, tag, q):
+        """Read lines from a pipe and push them onto a shared queue as (tag, line)."""
+        for line in iter(pipe.readline, ''):
+            q.put((tag, line))
+        pipe.close()
+        q.put((tag, None))  # sentinel: this stream is finished
+
+    def execute_cmd(self, cmd, target_directory, name="std", string_info=None, environment=None, display_on_failure=True):
         """
         Execute an external program specified by 'cmd'. The working directory of this program is set to target_directory.
 
@@ -65,8 +74,10 @@ class ExternalCommand:
         name (optional, default="std")            : [name].std and [name].err files are created for storing the std and err output of the job
         string_info (optional, default=None)      : Print info regarding the command that is executed before execution
         environment (optional, default=None)      : run cmd command with environment variables as given by environment=os.environ (and possibly modified)
-        displayOnFailure (optional, default=True) : Display error information if the code has failed to run: the last 15 lines of std.out and the last 15 lines of std.err
+        display_on_failure (optional, default=True) : Display error information if the code has failed to run: the last 15 lines of std.out and the last 15 lines of std.err
         """
+        log = logging.getLogger('logger')
+
         # Display string_info
         if string_info is not None:
             if self.gitlab_ci:
@@ -74,128 +85,96 @@ class ExternalCommand:
             else:
                 print(string_info)
 
-        # check that only cmd arguments of type 'list' are supplied to this function
-        if not isinstance(cmd, list):
+        # Make sure the cmd is an iterable but not a string
+        if isinstance(cmd, str) or not isinstance(cmd, Iterable):
             print(tools.red("cmd must be of type 'list'\ncmd=") + str(cmd) + tools.red(" and type(cmd)="), type(cmd))
             sys.exit(1)
+        self.workingDir = os.path.abspath(self.target_directory)
+        # ThreadPool creates new Threads called 'Thead-N', if only one Thread is used, it's name is 'MainThread'
+        is_parallel = threading.current_thread().name != 'MainThread'
 
-        sys.stdout.flush()  # flush output here, because the subprocess will force buffering until it is finished
-        log = logging.getLogger('logger')
-
-        workingDir = os.path.abspath(target_directory)
-        log.debug(workingDir)
-        log.debug(cmd)
+        log.debug(f"In {self.workingDir} executing {cmd}")
         start = timer()
 
-        self.stdout = []
-        self.stderr = []
-
-        bufOut = ""
-        bufErr = ""
+        # Check if an environment is used and load it into the subprocess if required
+        if environment:
+            environment_arg = {"env": environment}
+        else:
+            environment_arg = {}
 
         # Replace possible wild chards (*) with the globbed entries because the subprocess.Popen takes "*" literally, except when
         # called with shell=True (which however uses the /bin/sh by default)
-        cmd = replace_wild_cards_recursive(cmd, workingDir)
+        cmd = replace_wild_cards_recursive(cmd, self.workingDir)
+        self.process = subprocess.Popen(
+            cmd,
+            cwd=self.workingDir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,  # line-buffered on our side
+            **environment_arg
+        )
 
-        # ThreadPool creates new Threads called 'Thead-N', if only one Thread is used, it's name is 'MainThread'
-        is_parallel = threading.current_thread().name != 'MainThread'
-        if is_parallel:
-            if environment is None:
-                self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True, universal_newlines=True, cwd=workingDir)
+        q = Queue()
+        readers = [
+            threading.Thread(target=ExternalCommand._pump, args=(self.process.stdout, 'out', q), daemon=True),
+            threading.Thread(target=ExternalCommand._pump, args=(self.process.stderr, 'err', q), daemon=True),
+        ]
+        for t in readers:
+            t.start()
+
+        self.stdout = []
+        self.stderr = []
+        open_streams = len(readers)
+        while open_streams:
+            tag, line = q.get()
+            if line is None:
+                open_streams -= 1
+                continue
+            if tag == 'out':
+                self.stdout.append(line)
+                # When running in parallel, it is more useful to use the job artifacts instead of the serial log
+                if not is_parallel:
+                    log.debug(line.rstrip('\n'))
             else:
-                self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True, universal_newlines=True, cwd=workingDir, env=environment)
-            out, err = self.process.communicate()
-            self.stdout = [] if out is None else [line + '\n' for line in out.splitlines()]
-            self.stderr = [] if err is None else [line + '\n' for line in err.splitlines()]
-        else:
-            (pipeOut_r, pipeOut_w) = os.pipe()
-            (pipeErr_r, pipeErr_w) = os.pipe()
-            # Check if an environment is used and load it into the subprocess if required
-            # fmt: off
-            if environment is None :
-                self.process = subprocess.Popen(cmd, \
-                                                stdout             = pipeOut_w, \
-                                                stderr             = pipeErr_w, \
-                                                universal_newlines = True, \
-                                                cwd                = workingDir)
-            else :
-                self.process = subprocess.Popen(cmd, \
-                                                stdout             = pipeOut_w, \
-                                                stderr             = pipeErr_w, \
-                                                universal_newlines = True, \
-                                                cwd                = workingDir, \
-                                                env                = environment)
-            # fmt: on
+                self.stderr.append(line)  # readline() already keeps the '\n'
+                if not is_parallel:
+                    log.info(line.rstrip('\n'))
 
-            # .poll() is None means that the child is still running
-            while self.process.poll() is None:
-                # Loop as long as the select mechanism indicates there is data to be read from the buffer
-
-                # 1.   std.out
-                while len(select.select([pipeOut_r], [], [], 0)[0]) == 1:
-                    # Read up to a 1 KB chunk of data
-                    out_s = os.read(pipeOut_r, 1024)
-                    if not isinstance(out_s, str):
-                        out_s = out_s.decode("utf-8", 'ignore')
-                    bufOut = bufOut + out_s
-                    tmp = bufOut.split('\n')
-                    for line in tmp[:-1]:
-                        self.stdout.append(line + '\n')
-                        log.debug(line)
-                    bufOut = tmp[-1]
-
-                # 1.   err.out
-                while len(select.select([pipeErr_r], [], [], 0)[0]) == 1:
-                    # Read up to a 1 KB chunk of data
-                    out_s = os.read(pipeErr_r, 1024)
-                    if not isinstance(out_s, str):
-                        out_s = out_s.decode("utf-8", 'ignore')
-                    bufErr = bufErr + out_s
-                    tmp = bufErr.split('\n')
-                    for line in tmp[:-1]:
-                        self.stderr.append(line + '\n')
-                        log.info(line)
-                    bufErr = tmp[-1]
-
-            os.close(pipeOut_w)
-            os.close(pipeOut_r)
-            os.close(pipeErr_w)
-            os.close(pipeErr_r)
-
-        self.return_code = self.process.returncode
+        for t in readers:
+            t.join()
+        self.return_code = self.process.wait()
         end = timer()
         self.walltime = end - start
 
         # write std.out and err.out to disk
-        self.stdout_filename = os.path.join(target_directory, name + ".out")
-        with open(self.stdout_filename, 'w') as f:
-            for line in self.stdout:
-                f.write(line)
+        self.stdout_filename = os.path.join(self.target_directory, name + ".out")
+        with open(self.stdout_filename, 'w', encoding="utf-8") as f:
+            f.writelines(self.stdout)
+
         if self.return_code != 0:
-            self.result = tools.red("Failed")
-            self.stderr_filename = os.path.join(target_directory, name + ".err")
-            with open(self.stderr_filename, 'w') as f:
-                for line in self.stderr:
-                    f.write(line)
+            self.stderr_filename = os.path.join(self.target_directory, name + ".err")
+            with open(self.stderr_filename, 'w', encoding="utf-8") as f:
+                f.writelines(self.stderr)
         else:
-            self.result = tools.blue("Successful")
+            self.stderr_filename = None
 
         # Display result (Successful or Failed)
+        if self.return_code != 0:
+            self.result = tools.red("Failed")
+        else:
+            self.result = tools.blue("Successful")
         if string_info is not None and not self.gitlab_ci:
             # display result and wall time in previous line and shift the text by ncols columns to the right
-            # Note that f-strings in print statements, e.g. print(f"...."), only work in python 3
-            # print(f"\033[F\033[{ncols}G "+str(self.result)+" [%.2f sec]" % self.walltime)
             ncols = len(string_info) + 1
             print(f"\033[F\033[{ncols}G " + str(self.result) + f" [{self.walltime:.2f} sec]")
         else:
             print(self.result + f" [{self.walltime:.2f} sec]")
 
         # Display error information if the code has failed to run: the last 15 lines of std.out and the last 15 lines of std.err
-        if log.getEffectiveLevel() != logging.DEBUG and displayOnFailure and self.return_code != 0:
-            for line in self.stdout[-15:]:
-                print(tools.red(f"{line.strip()}"))
-            for line in self.stderr[-15:]:
-                print(tools.red(f"{line.strip()}"))
+        if display_on_failure and self.return_code != 0:
+            print(tools.red("".join(self.stdout[-15:])))
+            print(tools.red("".join(self.stderr[-15:])))
 
         return self.return_code
 
