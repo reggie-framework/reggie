@@ -11,6 +11,7 @@
 # You should have received a copy of the GNU General Public License along with reggie. If not, see <http://www.gnu.org/licenses/>.
 # ==================================================================================================================================
 import argparse
+import math
 import os
 from sys import platform, exit
 from pathlib import Path
@@ -21,81 +22,59 @@ from reggie import tools
 from reggie import check
 from reggie.outputdirectory import OutputDirectory
 
-# try:
-#     # Python 2.7
-#     import commands
-# except Exception:
-#     pass
+
+def _cgroup_cpu_limit():
+    """Return the CPU quota (e.g. 4.0 for --cpus=4), or None if unlimited."""
+    # cgroup v2: "<quota> <period>" or "max <period>"
+    try:
+        quota, period = Path('/sys/fs/cgroup/cpu.max').read_text().split()
+        if quota != 'max':
+            return int(quota) / int(period)
+        return None
+    except (OSError, ValueError):
+        pass
+    # cgroup v1
+    try:
+        base = Path('/sys/fs/cgroup/cpu')
+        quota = int((base / 'cpu.cfs_quota_us').read_text())
+        period = int((base / 'cpu.cfs_period_us').read_text())
+        if quota > 0:
+            return quota / period
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def _physical_cores(cpus):
+    """Count physical cores among the given logical CPUs (SMT siblings counted once)."""
+    cores = set()
+    for cpu in cpus:
+        topo = Path(f'/sys/devices/system/cpu/cpu{cpu}/topology')
+        try:
+            siblings = (topo / 'thread_siblings_list').read_text().strip()
+        except OSError:
+            return len(cpus)  # no topology info: fall back to logical CPUs
+        cores.add(siblings)
+    return len(cores)
 
 
 def getMaxCPUCores():
     """
-    Get the total number of available physical cores, ignore hyper threading or SMT etc.
-
-    The affinity is ignored at the moment, e.g., if the total number of processes is artificially limited,
-    see https://docs.python.org/3/library/os.html#os.sched_getaffinity.
+    Number of physical cores this process may use, honouring CPU affinity /
+    --cpuset-cpus and cgroup CPU quotas (docker --cpus, GitLab runner `cpus`).
     """
-    # Docker
-    # > Check cpuset.cpus for Docker-specific CPU limits
     try:
-        line = Path('/sys/fs/cgroup/cpuset.cpus').read_text().strip()
-        cnt = 0
-
-        # Assemble the number from the comma-separated list
-        for prt in line.split(','):
-            if '-' in prt:
-                start, end = map(int, prt.split('-'))
-                cnt += end - start + 1
-            else:
-                cnt += 1
-
-        if cnt > 0:
-            return cnt
-    except Exception:
-        pass
-
-    # Linux
-    # > Parse /proc/cpuinfo for physical cores
-    try:
-        physical_cores = {}
-        physical_id = None
-        with open('/proc/cpuinfo') as file:
-            for line in file:
-                if line.strip():
-                    val = line.split(':')
-                    key = val[0].strip()
-                    value = val[1].strip() if len(val) > 1 else None
-
-                    if value is None:
-                        continue
-
-                    # Look for "physical id" (CPU socket) and "core id" (core within socket)
-                    if key == 'physical id':
-                        physical_id = int(value)
-                    elif key == 'core id':
-                        core_id = int(value)
-
-                        # physical id has to come before core id
-                        if physical_id is None:
-                            raise IndexError
-
-                        physical_cores[(physical_id, core_id)] = True
-
-        # Count unique (physical_id, core_id) pairs
-        # print(len(physical_cores))
-        return len(physical_cores)
-    except Exception:
-        pass
-
-    # Python 2.6+
-    # > POSIX fallback: Use os.sched_getaffinity to get available cores
-    try:
-        return len(os.sched_getaffinity(0))
+        cpus = os.sched_getaffinity(0)
     except AttributeError:
-        pass
+        cpus = range(os.cpu_count() or 1)
 
-    # If all else fails, return 0 (unknown physical cores)
-    return 0
+    count = _physical_cores(cpus)
+
+    limit = _cgroup_cpu_limit()
+    if limit is not None:
+        count = min(count, max(1, math.floor(limit)))
+
+    return count
 
 
 def getArgsAndBuilds():
