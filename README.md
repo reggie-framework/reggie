@@ -935,6 +935,17 @@ externaldirectory = hopr.ini
 externalruntime   = pre
 ```
 
+To execute a script located in the example folder (e.g. a Python script with a shebang line and executable permission), which is
+called as `<externalbinary> <externaldirectory> <cmd_suffix>` within the run directory
+
+```
+MPI               = 1
+externalbinary    = ./analyze_state.py
+externaldirectory = parameter.ini
+externalruntime   = post
+cmd_suffix        = Project_State_000.00000000000000000.h5
+```
+
 
 # Builds
 

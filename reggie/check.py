@@ -495,6 +495,10 @@ def getExternals(path, example, build):
             binary_path = os.path.abspath(externalbinary)
             if os.path.exists(binary_path):
                 binary_found = True
+            # Check for an executable (e.g. a Python script) in the example directory
+            elif os.path.exists(os.path.join(example.source_directory, externalbinary)):
+                binary_path = os.path.abspath(os.path.join(example.source_directory, externalbinary))
+                binary_found = True
             elif binary == 'hopr':
                 # Try and load hopr binary path form environment variables
                 hopr_path = os.getenv('HOPR_PATH')
