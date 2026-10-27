@@ -10,15 +10,15 @@ authors = [
     {name = "Stephen Copplestone", email = "copplestone@boltzplatz.eu"},
 ]
 dependencies = [
-    "h5py>=3.13.0",
-    "matplotlib>=3.1.2",
-    "vtk>=9.4.0",
-    "pre-commit>=4.1.0",
-    "scipy>=1.15.3",
-    "gcovr>=8.4",
-    "coverage>=7.10.7",
-    "ty>=0.0.38",
-    "typing-extensions>=4.0.0"
+    "h5py>=3.16.0",
+    "matplotlib>=3.11.2",
+    "vtk>=9.7.1",
+    "pre-commit>=4.7.0",
+    "scipy>=1.18.1",
+    "gcovr>=8.8",
+    "coverage>=7.17.0",
+    "ty>=0.0.92",
+    "typing-extensions>=4.16.0"
     ]
 keywords = [
     "regression checks",
