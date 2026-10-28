@@ -495,6 +495,10 @@ def getExternals(path, example, build):
             binary_path = os.path.abspath(externalbinary)
             if os.path.exists(binary_path):
                 binary_found = True
+            # Check for an executable (e.g. a Python script) in the example directory
+            elif os.path.exists(os.path.join(example.source_directory, externalbinary)):
+                binary_path = os.path.abspath(os.path.join(example.source_directory, externalbinary))
+                binary_found = True
             elif binary == 'hopr':
                 # Try and load hopr binary path form environment variables
                 hopr_path = os.getenv('HOPR_PATH')
@@ -584,6 +588,9 @@ class ExternalRun(OutputDirectory, ExternalCommand):
         # Get binary path
         binary_path = external.parameters.get('binary_path')
 
+        # Run Python scripts with the current interpreter (no shebang/executable permission required)
+        if binary_path.endswith('.py'):
+            cmd.append(sys.executable)
         cmd.append(binary_path)
         cmd.append(external.parameterfile)
         # append suffix commands, e.g., a second parameter file 'DSMC.ini' or '-N 12'
