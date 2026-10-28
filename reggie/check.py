@@ -588,6 +588,9 @@ class ExternalRun(OutputDirectory, ExternalCommand):
         # Get binary path
         binary_path = external.parameters.get('binary_path')
 
+        # Run Python scripts with the current interpreter (no shebang/executable permission required)
+        if binary_path.endswith('.py'):
+            cmd.append(sys.executable)
         cmd.append(binary_path)
         cmd.append(external.parameterfile)
         # append suffix commands, e.g., a second parameter file 'DSMC.ini' or '-N 12'

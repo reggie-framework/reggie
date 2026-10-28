@@ -935,8 +935,9 @@ externaldirectory = hopr.ini
 externalruntime   = pre
 ```
 
-To execute a script located in the example folder (e.g. a Python script with a shebang line and executable permission), which is
-called as `<externalbinary> <externaldirectory> <cmd_suffix>` within the run directory
+To execute a script located in the example folder, which is called as `<externalbinary> <externaldirectory> <cmd_suffix>` within
+the run directory. Python scripts (`*.py`) are executed with the same Python interpreter that runs reggie, hence neither a shebang
+line nor executable permission is required
 
 ```
 MPI               = 1
