@@ -522,6 +522,7 @@ def getExternals(path, example, build):
 
             # Display error if no binary is found
             if not binary_found:
+                binary_path = os.path.abspath(externalbinary)
                 s = tools.red(f'getExternals: {s}The supplied path [{binary_path}] via "externalbinary" does not exist.')
                 externals_errors.append(s)
                 print(s)
