@@ -589,7 +589,7 @@ class ExternalRun(OutputDirectory, ExternalCommand):
         binary_path = external.parameters.get('binary_path')
 
         # Run Python scripts with the current interpreter (no shebang/executable permission required)
-        if binary_path.endswith('.py'):
+        if binary_path.lower().endswith('.py'):
             cmd.append(sys.executable)
         cmd.append(binary_path)
         cmd.append(external.parameterfile)
