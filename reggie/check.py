@@ -491,13 +491,15 @@ def getExternals(path, example, build):
         if os.path.exists(binary_path):
             binary_found = True
         else:
-            # If the binary is not within the ./bin/ directory, check if the path points to a binary directly
-            binary_path = os.path.abspath(externalbinary)
-            if os.path.exists(binary_path):
+            # Check for an executable (e.g. a Python script) in the example directory first,
+            # so a same-named file relative to reggie's working directory cannot shadow it
+            example_path = os.path.abspath(os.path.join(example.source_directory, externalbinary))
+            if os.path.exists(example_path):
+                binary_path = example_path
                 binary_found = True
-            # Check for an executable (e.g. a Python script) in the example directory
-            elif os.path.exists(os.path.join(example.source_directory, externalbinary)):
-                binary_path = os.path.abspath(os.path.join(example.source_directory, externalbinary))
+            # If the binary is not within the ./bin/ directory, check if the path points to a binary directly
+            elif os.path.exists(os.path.abspath(externalbinary)):
+                binary_path = os.path.abspath(externalbinary)
                 binary_found = True
             elif binary == 'hopr':
                 # Try and load hopr binary path form environment variables
@@ -582,14 +584,16 @@ class ExternalRun(OutputDirectory, ExternalCommand):
         # check MPI threads for mpirun
         MPIthreads = external.parameters.get('MPI')
 
-        # check MPI built binary (only possible for reggie-compiled binaries)
-        cmd = SetMPIrun(build, args, MPIthreads)
-
         # Get binary path
         binary_path = external.parameters.get('binary_path')
+        binary_is_python_script = binary_path.lower().endswith('.py')
+
+        # check MPI built binary (only possible for reggie-compiled binaries)
+        # Python scripts are never launched via mpirun (would run N identical copies)
+        cmd = [] if binary_is_python_script else SetMPIrun(build, args, MPIthreads)
 
         # Run Python scripts with the current interpreter (no shebang/executable permission required)
-        if binary_path.lower().endswith('.py'):
+        if binary_is_python_script:
             cmd.append(sys.executable)
         cmd.append(binary_path)
         cmd.append(external.parameterfile)
