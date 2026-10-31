@@ -938,9 +938,10 @@ externalruntime   = pre
 To execute a script located in the example folder, which is called as `<externalbinary> <externaldirectory> <cmd_suffix>` within
 the run directory. Python scripts (`*.py`) are executed with the same Python interpreter that runs reggie, hence neither a shebang
 line nor executable permission is required. Non-Python scripts in the example folder still need a shebang and `+x`.
+Python scripts are always run serially, i.e., `MPI` is ignored. The script must exit with a non-zero return code
+(e.g. `sys.exit(1)`) on failure, which marks the external run as failed.
 
 ```
-MPI               = 1
 externalbinary    = ./analyze_state.py
 externaldirectory = parameter.ini
 externalruntime   = post
