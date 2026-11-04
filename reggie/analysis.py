@@ -1602,7 +1602,7 @@ class Analyze_h5diff(Analyze, ExternalCommand):
                         cmd = ["h5diff", "-r", tolerance_type_loc, str(tolerance_value_loc), str(file_loc), str(reference_file_loc), str(data_set_loc_file), str(data_set_loc_ref)]
                         try:
                             s = "Running [{}] ...".format("  ".join(cmd))
-                            self.execute_cmd(cmd, run.target_directory, name="h5diff" + str(n), string_info=tools.indent(s, 2), displayOnFailure=False)  # run the code
+                            self.execute_cmd(cmd, run.target_directory, name="h5diff" + str(n), string_info=tools.indent(s, 2), display_on_failure=False)  # run the code
 
                             # 1.2.2   Check maximum number of differences if user has selected h5diff_max_differences > 0
                             try:
