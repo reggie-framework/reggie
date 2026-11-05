@@ -19,10 +19,12 @@ on:
   # Runs on pushes targeting the default branch
   push:
     branches:
-      - master
       - main
   # Runs on pull requests
   pull_request:
+  # Runs once a week on Sunday at 02:10 UTC
+  schedule:
+    - cron: '10 2 * * 0'
   # Allows running this workflow manually from the Actions tab
   workflow_dispatch:
     inputs:
@@ -45,7 +47,7 @@ permissions:
 
 # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 # Environment variables
