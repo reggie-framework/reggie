@@ -65,14 +65,19 @@ jobs:
         id: cache
         with:
           path: .venv
-          key: venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml', '.pre-commit-config.yaml') }}
       - name: Create virtual environment
         if: steps.cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
+          # pin the linters to the versions in .pre-commit-config.yaml (single source of truth)
+          rev() { yq ".repos[] | select(.repo == \"$1\") | .rev" .pre-commit-config.yaml | sed 's/^v//'; }
+          RUFF_VERSION=$(rev https://github.com/astral-sh/ruff-pre-commit)
+          TY_VERSION=$(rev https://github.com/astral-sh/ty-pre-commit)
+          VULTURE_VERSION=$(rev https://github.com/jendrikseipp/vulture)
           python -m venv .venv
           source .venv/bin/activate
-          python -m pip install ruff ty vulture pyhope
+          python -m pip install "ruff==${RUFF_VERSION}" "ty==${TY_VERSION}" "vulture==${VULTURE_VERSION}" pyhope
           python -m pip install --editable .
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -150,7 +155,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: .venv
-          key: venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml', '.pre-commit-config.yaml') }}
       - name: Run ruff
         shell: bash
         run: |
@@ -167,7 +172,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: .venv
-          key: venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml', '.pre-commit-config.yaml') }}
       - name: Run ty
         shell: bash
         run: |
@@ -184,7 +189,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: .venv
-          key: venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml', '.pre-commit-config.yaml') }}
       - name: Run vulture
         shell: bash
         run: |
@@ -275,7 +280,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: .venv
-          key: venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml', '.pre-commit-config.yaml') }}
       - name: Perform ${{ matrix.check }}
         shell: bash
         run: |
@@ -303,7 +308,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: .venv
-          key: venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml', '.pre-commit-config.yaml') }}
       - name: Install HDF5 tools
         run: sudo apt-get update && sudo apt-get install -y hdf5-tools
       - name: Perform ${{ matrix.check }}
@@ -336,7 +341,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: .venv
-          key: venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml', '.pre-commit-config.yaml') }}
       - uses: actions/cache/restore@v5
         with:
           path: piclas
@@ -378,7 +383,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: .venv
-          key: venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml', '.pre-commit-config.yaml') }}
       - uses: actions/cache/restore@v5
         with:
           path: piclas
@@ -409,7 +414,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: .venv
-          key: venv-${{ hashFiles('pyproject.toml') }}
+          key: venv-${{ hashFiles('pyproject.toml', '.pre-commit-config.yaml') }}
       - name: Download coverage data
         uses: actions/download-artifact@v8
         with:
