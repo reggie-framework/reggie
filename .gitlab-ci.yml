@@ -23,9 +23,7 @@ spec:
       description: "Push the master branch to the reggie-framework/reggie repository on github"
       default: false
 ---
-# Official language image. Look for the different tagged releases at:
-# > https://hub.docker.com/r/library/python/tags/
-image: python:3.14-bookworm
+# NOTE: The runner uses the shell executor, so `image:` would be ignored. Jobs run on the host.
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # Templates ("hidden jobs")
@@ -48,7 +46,7 @@ image: python:3.14-bookworm
   - ulimit -s unlimited
   - python3 -V || true
   # Setup Python virtual environment
-  - python -m venv .venv
+  - python3 -m venv .venv
   - source .venv/bin/activate
   # Install reggie
   - python -m pip install --editable .
@@ -62,7 +60,7 @@ image: python:3.14-bookworm
   - ulimit -s unlimited
   - python3 -V || true
   # Setup Python virtual environment
-  - python -m venv .venv
+  - python3 -m venv .venv
   - source .venv/bin/activate
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -116,41 +114,36 @@ vulture:
     # Compatibility
     - reggie --help
 
-# Python 3.10 ----------------------------------------------------------------------------------------------------------------------------------------
-python:3.10:
+compatibility:
   extends: .defaults
   stage: compatibility
-  image: python:3.10-bookworm
-  before_script: *global-before-script
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
+  variables:
+    UV_CACHE_DIR: "$CI_PROJECT_DIR/.uv-cache"
+  cache:
+    key: "uv-$PYTHON_VERSION"
+    paths:
+      - .uv-cache
+  before_script:
+    - ulimit -s unlimited
+    # Bootstrap uv in its own venv (host Python is externally managed, PEP 668)
+    - python3 -m venv .uv
+    - .uv/bin/pip install -q uv
+    # Create and activate the venv for the requested Python version (uv downloads it if missing)
+    - .uv/bin/uv venv --python "$PYTHON_VERSION" ".venv-$PYTHON_VERSION"
+    - source ".venv-$PYTHON_VERSION/bin/activate"
+    - python --version
+    # Install reggie
+    - .uv/bin/uv pip install -e .
   <<: *compatibility-script
-# Python 3.11 ----------------------------------------------------------------------------------------------------------------------------------------
-python:3.11:
-  extends: .defaults
-  stage: compatibility
-  image: python:3.11-bookworm
-  before_script: *global-before-script
-  <<: *compatibility-script
-# Python 3.12 ----------------------------------------------------------------------------------------------------------------------------------------
-python:3.12:
-  extends: .defaults
-  stage: compatibility
-  image: python:3.12-bookworm
-  before_script: *global-before-script
-  <<: *compatibility-script
-# Python 3.13 ----------------------------------------------------------------------------------------------------------------------------------------
-python:3.13:
-  extends: .defaults
-  stage: compatibility
-  image: python:3.13-bookworm
-  before_script: *global-before-script
-  <<: *compatibility-script
-# Python 3.14 ----------------------------------------------------------------------------------------------------------------------------------------
-python:3.14:
-  extends: .defaults
-  stage: compatibility
-  image: python:3.14-bookworm
-  before_script: *global-before-script
-  <<: *compatibility-script
+  after_script:
+    - .uv/bin/uv cache prune --ci || true
+  rules:
+    - if: '$PYTHON_VERSION == "3.15"'
+      allow_failure: true
+    - when: on_success
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # Stage "github": Push the master branch to github
