@@ -48,6 +48,11 @@ spec:
   # Setup Python virtual environment
   - python3 -m venv .venv
   - source .venv/bin/activate
+  # Linter versions come from .pre-commit-config.yaml (single source of truth).
+  # precommit_rev <repo-url> prints that repo's rev without a leading "v" and fails if the repo is missing.
+  - python -m pip install -q pyyaml
+  - |
+    precommit_rev() { python -c 'import sys, yaml; cfg = yaml.safe_load(open(".pre-commit-config.yaml")); print(next(r["rev"] for r in cfg["repos"] if r["repo"] == sys.argv[1]).removeprefix("v"))' "$1"; }
   # Install reggie
   - python -m pip install --editable .
 
@@ -62,6 +67,11 @@ spec:
   # Setup Python virtual environment
   - python3 -m venv .venv
   - source .venv/bin/activate
+  # Linter versions come from .pre-commit-config.yaml (single source of truth).
+  # precommit_rev <repo-url> prints that repo's rev without a leading "v" and fails if the repo is missing.
+  - python -m pip install -q pyyaml
+  - |
+    precommit_rev() { python -c 'import sys, yaml; cfg = yaml.safe_load(open(".pre-commit-config.yaml")); print(next(r["rev"] for r in cfg["repos"] if r["repo"] == sys.argv[1]).removeprefix("v"))' "$1"; }
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # Stages
@@ -80,7 +90,8 @@ ruff:
   before_script: *minimal-before-script
   script:
     # Install Ruff
-    - python -m pip install ruff
+    - RUFF_VERSION=$(precommit_rev https://github.com/astral-sh/ruff-pre-commit)
+    - python -m pip install "ruff==${RUFF_VERSION}"
     # Ruff linter
     - ruff --version
     - ruff check --config pyproject.toml --preview reggie
@@ -91,7 +102,8 @@ ty:
   before_script: *global-before-script
   script:
     # Install Ty
-    - python -m pip install ty
+    - TY_VERSION=$(precommit_rev https://github.com/astral-sh/ty-pre-commit)
+    - python -m pip install "ty==${TY_VERSION}"
     # Ty type checker
     - ty --version
     - ty check --color always --project reggie
@@ -101,7 +113,8 @@ vulture:
   stage: lint
   before_script: *minimal-before-script
   script:
-    - python -m pip install vulture
+    - VULTURE_VERSION=$(precommit_rev https://github.com/jendrikseipp/vulture)
+    - python -m pip install "vulture==${VULTURE_VERSION}"
     - vulture --version
     - vulture --config pyproject.toml reggie
 
