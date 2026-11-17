@@ -29,7 +29,7 @@ repos:
         alias: vulture
 
   - repo: https://github.com/astral-sh/ty-pre-commit
-    rev: v0.0.83
+    rev: v0.0.101
     hooks:
       - id: ty
         name: ty type checker

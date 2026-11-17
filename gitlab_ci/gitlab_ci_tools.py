@@ -10,7 +10,7 @@
 #
 # You should have received a copy of the GNU General Public License along with reggie. If not, see <http://www.gnu.org/licenses/>.
 # ==================================================================================================================================
-from externalcommand import ExternalCommand  # ty:ignore[unresolved-import]
+from externalcommand import ExternalCommand  # ty:ignore[import-not-found]
 from timeit import default_timer as timer
 import sys
 

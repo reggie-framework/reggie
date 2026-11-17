@@ -42,7 +42,7 @@ except ImportError:
 # import vtk I/O routines
 try:
     import vtk
-    import vtk.util.numpy_support  # ty:ignore[unresolved-import]
+    import vtk.util.numpy_support  # ty:ignore[import-not-found]
 
     vtk_module_loaded = True
 except ImportError:

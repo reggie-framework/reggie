@@ -17,12 +17,12 @@ import re
 import logging
 import argparse
 import shutil
-import tools  # ty:ignore[unresolved-import]
-import gitlab_ci_tools  # ty:ignore[unresolved-import]
+import tools  # ty:ignore[import-not-found]
+import gitlab_ci_tools  # ty:ignore[import-not-found]
 
 # import reggie source code
 # use reggie functions by adding the path
-import settings  # ty:ignore[unresolved-import]
+import settings  # ty:ignore[import-not-found]
 
 settings.init()  # Call only once
 
