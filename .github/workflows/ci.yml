@@ -118,7 +118,7 @@ jobs:
           path: piclas
           key: piclas-${{ needs.piclas_download.outputs.commit }}
           fail-on-cache-miss: true
-      # separate read/write cache for the build directory, append the testcase dir since the build changes with the testcase
+      # separate read/write cache for the build directory, keyed on the testcase
       - uses: actions/cache@v5
         id: cache
         with:
@@ -130,7 +130,7 @@ jobs:
         run: |
           cd piclas
           rm -rf build
-          cmake -B build -DCMAKE_BUILD_TYPE=RELEASE -DLIBS_BUILD_HDF5=OFF -DPICLAS_POLYNOMIAL_DEGREE=N -DPICLAS_EQNSYSNAME=maxwell -DPICLAS_TIMEDISCMETHOD=DSMC -DLIBS_USE_MPI=ON -DPICLAS_NODETYPE=GAUSS
+          cmake -B build -DCMAKE_BUILD_TYPE=RELEASE -DLIBS_BUILD_HDF5=OFF -DPICLAS_POLYNOMIAL_DEGREE=N -DPICLAS_EQNSYSNAME=maxwell -DPICLAS_TIMEDISCMETHOD=DSMC -DLIBS_USE_MPI=ON -DPICLAS_NODETYPE=GAUSS -DPICLAS_INSTRUCTION="-mtune=generic"
           cmake --build build -j
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
