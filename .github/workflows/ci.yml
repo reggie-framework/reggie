@@ -30,9 +30,6 @@ on:
       testcase_dir_build:
         # testcase directory used for building the executable with reggie
         default: 'CHE_maxwell'
-      testcase_dir:
-        # this testcase directory is used for the execution with the pre-compiled executable, note that it might contain more than one testcase, use $TESTCASE to specify a single on (for shorter runtime)
-        default: 'NIG_Reservoir_single_core'
       testcase:
         # this testcase includes multiple cores for the reggie execution
         default: 'RELAX_N2'
@@ -121,22 +118,20 @@ jobs:
           path: piclas
           key: piclas-${{ needs.piclas_download.outputs.commit }}
           fail-on-cache-miss: true
-      # separate read/write cache for the build directory, append the testcase_dir since the build changes with the testcase
+      # separate read/write cache for the build directory, keyed on the testcase
       - uses: actions/cache@v5
         id: cache
         with:
           path: piclas/build
-          key: piclas-build-${{ needs.piclas_download.outputs.commit }}-${{ inputs.testcase_dir || 'NIG_Reservoir_single_core' }}
+          key: piclas-build-${{ needs.piclas_download.outputs.commit }}-NIG_Reservoir_single_core
       - name: Build piclas
         if: steps.cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           cd piclas
           rm -rf build
-          mkdir build
-          cd build
-          # create executable with tools script
-          ../tools/cmake-builds-ini.sh ../regressioncheck/${{ inputs.testcase_dir || 'NIG_Reservoir_single_core' }}/builds.ini
+          cmake -B build -DCMAKE_BUILD_TYPE=RELEASE -DLIBS_BUILD_HDF5=OFF -DPICLAS_POLYNOMIAL_DEGREE=N -DPICLAS_EQNSYSNAME=maxwell -DPICLAS_TIMEDISCMETHOD=DSMC -DLIBS_USE_MPI=ON -DPICLAS_NODETYPE=GAUSS -DPICLAS_INSTRUCTION="-mtune=generic"
+          cmake --build build -j
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # Linter
@@ -327,7 +322,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - check: piclas/regressioncheck/${{ inputs.testcase_dir || 'NIG_Reservoir_single_core' }}/${{ inputs.testcase || 'RELAX_N2' }}
+          - check: piclas/regressioncheck/NIG_Reservoir_single_core/${{ inputs.testcase || 'RELAX_N2' }}
             extra_args: "-e piclas/build/bin/piclas"          # use pre-build executable
     steps:
       - uses: actions/checkout@v5
@@ -345,7 +340,7 @@ jobs:
       - uses: actions/cache/restore@v5
         with:
           path: piclas/build
-          key: piclas-build-${{ needs.piclas_download.outputs.commit }}-${{ inputs.testcase_dir || 'NIG_Reservoir_single_core' }}
+          key: piclas-build-${{ needs.piclas_download.outputs.commit }}-NIG_Reservoir_single_core
           fail-on-cache-miss: true
       - name: Perform ${{ matrix.check }} ${{ matrix.extra_args }}
         shell: bash
