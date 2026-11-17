@@ -199,7 +199,7 @@ firefox ./Coverage/reggie/htmlcov/index.html
 ## Continuous Integration (CI)
 
 The GitHub Actions workflow [.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every push to `main` and on every pull request.
-It can also be started manually from the Actions tab (workflow_dispatch), where the piclas testcases can be selected via the inputs `testcase_dir_build`, `testcase_dir` and `testcase`.
+It can also be started manually from the Actions tab (workflow_dispatch), where the piclas testcases can be selected via the inputs `testcase_dir_build` and `testcase`.
 
 The jobs depend on each other as follows:
 
@@ -207,7 +207,7 @@ The jobs depend on each other as follows:
 
 - **Setup venv** creates a virtual environment with an editable install of reggie plus additional tools (currently linter and pyhope). The `.venv` directory is cached with a key derived from `pyproject.toml`, so it is only rebuilt when the dependencies change. All downstream jobs restore this cache instead of reinstalling.
 - **Clone piclas** performs a shallow clone of the [piclas](https://github.com/piclas-framework/piclas) repository. The cache key is the upstream HEAD commit, so the clone (and every build based on it) is only redone when piclas is updated.
-- **Build piclas** compiles the piclas executable for the selected testcase. The build directory is cached with the piclas commit and the testcase in the key (since the build could change for different testcases). Download and build are separate jobs so that this build runs in parallel to the regressioncheck that builds piclas within reggie.
+- **Build piclas** compiles the piclas executable for a single testcase. The build directory is cached with the piclas commit and the testcase in the key (since the build could change for different testcases). Download and build are separate jobs so that this build runs in parallel to the regressioncheck that builds piclas within reggie.
 
 ### Linting and compatibility
 
