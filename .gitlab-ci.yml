@@ -37,26 +37,7 @@ spec:
   dependencies: []
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
-# Define a reusable global before_script with YAML anchors
-.global-before-script: &global-before-script
-  # Load modules on new boltzplatz reggie
-  - export PATH="/var/lib/gitlab-runner/.local/bin:$PATH"
-  - module list || true
-  # Setup system
-  - ulimit -s unlimited
-  - python3 -V || true
-  # Setup Python virtual environment
-  - python3 -m venv .venv
-  - source .venv/bin/activate
-  # Linter versions come from .pre-commit-config.yaml (single source of truth).
-  # precommit_rev <repo-url> prints that repo's rev without a leading "v" and fails if the repo is missing.
-  - python -m pip install -q pyyaml
-  - |
-    precommit_rev() { python -c 'import sys, yaml; cfg = yaml.safe_load(open(".pre-commit-config.yaml")); print(next(r["rev"] for r in cfg["repos"] if r["repo"] == sys.argv[1]).removeprefix("v"))' "$1"; }
-  # Install reggie
-  - python -m pip install --editable .
-
-# Define a reusable global before_script with YAML anchors
+# Define reusable before_script steps with YAML anchors
 .minimal-before-script: &minimal-before-script
   # Load modules on new boltzplatz reggie
   - export PATH="/var/lib/gitlab-runner/.local/bin:$PATH"
@@ -72,6 +53,11 @@ spec:
   - python -m pip install -q pyyaml
   - |
     precommit_rev() { python -c 'import sys, yaml; cfg = yaml.safe_load(open(".pre-commit-config.yaml")); print(next(r["rev"] for r in cfg["repos"] if r["repo"] == sys.argv[1]).removeprefix("v"))' "$1"; }
+
+.global-before-script: &global-before-script
+  - *minimal-before-script
+  # Install reggie
+  - python -m pip install --editable .
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # Stages
